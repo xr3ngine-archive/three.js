@@ -136,7 +136,7 @@ THREE.GLTFExporter.prototype = {
 	constructor: THREE.GLTFExporter,
 
 	/**
-	 * Parse scenes and generate GLTF output
+	 * Parse scenes and generate GLTF json output and binary output.
 	 * @param  {THREE.Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
 	 * @param  {Function} onDone  Callback on completed
 	 * @param  {Object} options options
@@ -1765,20 +1765,23 @@ THREE.GLTFExporter.prototype = {
 				// Update bytelength of the single buffer.
 				outputJSON.buffers[ 0 ].byteLength = blob.size;
 
-
-			} else {
-
-				onDone( {
-					json: outputJSON,
-					bin: blob
-				} );
-
 			}
+
+			onDone( {
+				json: outputJSON,
+				bin: blob
+			} );
 
 		} );
 
 	},
 
+	/**
+	 * Parse scenes and generate GLTF output
+	 * @param  {THREE.Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
+	 * @param  {Function} onDone  Callback on completed
+	 * @param  {Object} options options
+	 */
 	parse: function ( input, onDone, options ) {
 
 		this.parseParts( function ( parts ) {
