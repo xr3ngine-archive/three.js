@@ -172,6 +172,12 @@ THREE.GLTFLoader = ( function () {
 
 			} );
 
+			if ( this.onNodeAdded ) {
+
+				parser.onNodeAdded = this.onNodeAdded;
+
+			}
+
 			parser.parse( function ( scene, scenes, cameras, animations, json ) {
 
 				var glTF = {
@@ -2890,6 +2896,7 @@ THREE.GLTFLoader = ( function () {
 	 */
 	GLTFParser.prototype.loadNode = function ( nodeIndex ) {
 
+		var scope = this;
 		var json = this.json;
 		var extensions = this.extensions;
 
@@ -3003,6 +3010,12 @@ THREE.GLTFLoader = ( function () {
 					node.scale.fromArray( nodeDef.scale );
 
 				}
+
+			}
+
+			if ( scope.onNodeAdded ) {
+
+				scope.onNodeAdded( node );
 
 			}
 
