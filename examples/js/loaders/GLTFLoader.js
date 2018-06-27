@@ -20,7 +20,7 @@ THREE.GLTFLoader = ( function () {
 
 		if ( THREE.DDSLoader ) {
 
-		this.registerExtension( new GLTFTextureDDSExtension() );
+			this.registerExtension( new GLTFTextureDDSExtension() );
 
 		}
 
@@ -2456,7 +2456,7 @@ THREE.GLTFLoader = ( function () {
 			for ( var i = 0, il = primitives.length; i < il; i ++ ) {
 
 				var primitive = primitives[ i ];
-				var geometryPromise;
+				var geometryPromise = null;
 
 				// See if we've already created this geometry
 				var cached = getCachedGeometry( cache, primitive );
