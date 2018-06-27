@@ -16,8 +16,13 @@ THREE.GLTFLoader = ( function () {
 		this.registerExtension( new GLTFBinaryExtension() );
 		this.registerExtension( new GLTFMaterialsPbrSpecularGlossinessExtension() );
 		this.registerExtension( new GLTFMaterialsUnlitExtension() );
-		this.registerExtension( new GLTFTextureDDSExtension() );
 		this.registerExtension( new GLTFLightsExtension() );
+
+		if ( THREE.DDSLoader ) {
+
+		this.registerExtension( new GLTFTextureDDSExtension() );
+
+		}
 
 	}
 
