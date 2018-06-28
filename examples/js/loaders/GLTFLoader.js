@@ -1632,6 +1632,22 @@ THREE.GLTFLoader = ( function () {
 
 		var json = this.json;
 
+		if ( json.extensionsRequired ) {
+
+			for ( var i = 0; i < json.extensionsRequired.length; ++ i ) {
+
+				var extensionName = json.extensionsRequired[ i ];
+
+				if ( this.extensions[ extensionName ] === undefined ) {
+
+					console.warn( 'THREE.GLTFParser: Unknown extension "' + extensionName + '".' );
+
+				}
+
+			}
+
+		}
+
 		// Clear the loader cache
 		this.cache.removeAll();
 
