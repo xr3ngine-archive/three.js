@@ -233,6 +233,10 @@ THREE.GLTFLoader = ( function () {
 
 	};
 
+	GLTFLoaderExtension.prototype.beforeParse = function ( parser ) {
+
+	};
+
 	GLTFLoaderExtension.prototype.shouldCreateTexture = function ( parser, textureIndex, textureDef, extensionDef ) {
 
 		return false;
@@ -1631,6 +1635,18 @@ THREE.GLTFLoader = ( function () {
 	GLTFParser.prototype.parse = function ( onLoad, onError ) {
 
 		var json = this.json;
+
+		for ( var extensionName in this.extensions ) {
+
+			if ( this.extensions.hasOwnProperty( extensionName ) ) {
+
+				var extension = this.extensions[ extensionName ];
+
+				extension.beforeParse( this );
+
+			}
+
+		}
 
 		if ( json.extensionsRequired ) {
 
