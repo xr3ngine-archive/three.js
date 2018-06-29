@@ -82,7 +82,7 @@ THREE.GLTFLoader = ( function () {
 
 		setDRACOLoader: function ( dracoLoader ) {
 
-			this.registerExtension( new GLTFDracoMeshCompressionExtension( dracoLoader ) );
+			this.registerExtension( new THREE.GLTFLoaderDracoMeshCompressionExtension( { dracoLoader: dracoLoader } ) );
 			return this;
 
 		},
@@ -215,9 +215,10 @@ THREE.GLTFLoader = ( function () {
 
 	THREE.GLTFLoaderExtension = GLTFLoaderExtension;
 
-	function GLTFLoaderExtension( name ) {
+	function GLTFLoaderExtension( name, config ) {
 
 		this.name = name;
+		this.config = config;
 
 	}
 
@@ -557,17 +558,15 @@ THREE.GLTFLoader = ( function () {
 	 *
 	 * Specification: https://github.com/KhronosGroup/glTF/pull/874
 	 */
-	function GLTFDracoMeshCompressionExtension( dracoLoader ) {
+	function GLTFDracoMeshCompressionExtension( config ) {
 
-		if ( ! dracoLoader ) {
+		if ( ! config.dracoLoader ) {
 
 			throw new Error( 'THREE.GLTFLoader: No DRACOLoader instance provided.' );
 
 		}
 
-		GLTFLoaderExtension.call( this, EXTENSIONS.KHR_DRACO_MESH_COMPRESSION );
-
-		this.dracoLoader = dracoLoader;
+		GLTFLoaderExtension.call( this, EXTENSIONS.KHR_DRACO_MESH_COMPRESSION, config );
 
 	}
 
@@ -582,7 +581,7 @@ THREE.GLTFLoader = ( function () {
 	GLTFDracoMeshCompressionExtension.prototype.createGeometry = function ( parser, primitive, accessors ) {
 
 		var json = parser.json;
-		var dracoLoader = this.dracoLoader;
+		var dracoLoader = this.options.dracoLoader;
 		var bufferViewIndex = primitive.extensions[ this.name ].bufferView;
 		var gltfAttributeMap = primitive.extensions[ this.name ].attributes;
 		var threeAttributeMap = {};
