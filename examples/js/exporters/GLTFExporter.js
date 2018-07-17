@@ -48,6 +48,94 @@ var PATH_PROPERTIES = {
 	morphTargetInfluences: 'weights'
 };
 
+var DEFAULT_OPTIONS = {
+	mode: "glb",
+	trs: true,
+	onlyVisible: true,
+	truncateDrawRange: true,
+	animations: [],
+	forceIndices: false,
+	forcePowerOfTwoTextures: false
+};
+
+/**
+ * Get the required size + padding for a buffer, rounded to the next 4-byte boundary.
+ * https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#data-alignment
+ *
+ * @param {Integer} bufferSize The size the original buffer.
+ * @returns {Integer} new buffer size with required padding.
+ *
+ */
+function getPaddedBufferSize( bufferSize ) {
+
+	return Math.ceil( bufferSize / 4 ) * 4;
+
+}
+
+/**
+ * Returns a buffer aligned to 4-byte boundary.
+ *
+ * @param {ArrayBuffer} arrayBuffer Buffer to pad
+ * @param {Integer} paddingByte (Optional)
+ * @returns {ArrayBuffer} The same buffer if it's already aligned to 4-byte boundary or a new buffer
+ */
+function getPaddedArrayBuffer( arrayBuffer, paddingByte ) {
+
+	paddingByte = paddingByte || 0;
+
+	var paddedLength = getPaddedBufferSize( arrayBuffer.byteLength );
+
+	if ( paddedLength !== arrayBuffer.byteLength ) {
+
+		var array = new Uint8Array( paddedLength );
+		array.set( new Uint8Array( arrayBuffer ) );
+
+		if ( paddingByte !== 0 ) {
+
+			for ( var i = arrayBuffer.byteLength; i < paddedLength; i ++ ) {
+
+				array[ i ] = paddingByte;
+
+			}
+
+		}
+
+		return array.buffer;
+
+	}
+
+	return arrayBuffer;
+
+}
+
+/**
+ * Converts a string to an ArrayBuffer.
+ * @param  {string} text
+ * @return {ArrayBuffer}
+ */
+function stringToArrayBuffer( text ) {
+
+	if ( window.TextEncoder !== undefined ) {
+
+		return new TextEncoder().encode( text ).buffer;
+
+	}
+
+	var array = new Uint8Array( new ArrayBuffer( text.length ) );
+
+	for ( var i = 0, il = text.length; i < il; i ++ ) {
+
+		var value = text.charCodeAt( i );
+
+		// Replacing multi-byte character with space(0x20).
+		array[ i ] = value > 0xFF ? 0x20 : value;
+
+	}
+
+	return array.buffer;
+
+}
+
 //------------------------------------------------------------------------------
 // GLTF Exporter
 //------------------------------------------------------------------------------
@@ -58,23 +146,13 @@ THREE.GLTFExporter.prototype = {
 	constructor: THREE.GLTFExporter,
 
 	/**
-	 * Parse scenes and generate GLTF output
+	 * Parse scenes and generate an object containing the glTF JSON, buffers, and images.
 	 * @param  {THREE.Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
 	 * @param  {Function} onDone  Callback on completed
+	 * @param  {Function} onError Callback on error
 	 * @param  {Object} options options
 	 */
-	parse: function ( input, onDone, options ) {
-
-		var DEFAULT_OPTIONS = {
-			binary: false,
-			trs: false,
-			onlyVisible: true,
-			truncateDrawRange: true,
-			embedImages: true,
-			animations: [],
-			forceIndices: false,
-			forcePowerOfTwoTextures: false
-		};
+	parseChunks: function ( input, onDone, onError, options ) {
 
 		options = Object.assign( {}, DEFAULT_OPTIONS, options );
 
@@ -95,6 +173,9 @@ THREE.GLTFExporter.prototype = {
 			}
 
 		};
+
+		var outputBuffers = [];
+		var outputImages = [];
 
 		var byteOffset = 0;
 		var buffers = [];
@@ -129,34 +210,6 @@ THREE.GLTFExporter.prototype = {
 				return element === array2[ index ];
 
 			} );
-
-		}
-
-		/**
-		 * Converts a string to an ArrayBuffer.
-		 * @param  {string} text
-		 * @return {ArrayBuffer}
-		 */
-		function stringToArrayBuffer( text ) {
-
-			if ( window.TextEncoder !== undefined ) {
-
-				return new TextEncoder().encode( text ).buffer;
-
-			}
-
-			var array = new Uint8Array( new ArrayBuffer( text.length ) );
-
-			for ( var i = 0, il = text.length; i < il; i ++ ) {
-
-				var value = text.charCodeAt( i );
-
-				// Replacing multi-byte character with space(0x20).
-				array[ i ] = value > 0xFF ? 0x20 : value;
-
-			}
-
-			return array.buffer;
 
 		}
 
@@ -277,53 +330,9 @@ THREE.GLTFExporter.prototype = {
 
 		}
 
-		/**
-		 * Get the required size + padding for a buffer, rounded to the next 4-byte boundary.
-		 * https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#data-alignment
-		 *
-		 * @param {Integer} bufferSize The size the original buffer.
-		 * @returns {Integer} new buffer size with required padding.
-		 *
-		 */
-		function getPaddedBufferSize( bufferSize ) {
+		function getFileNameFromUri( uri ) {
 
-			return Math.ceil( bufferSize / 4 ) * 4;
-
-		}
-
-		/**
-		 * Returns a buffer aligned to 4-byte boundary.
-		 *
-		 * @param {ArrayBuffer} arrayBuffer Buffer to pad
-		 * @param {Integer} paddingByte (Optional)
-		 * @returns {ArrayBuffer} The same buffer if it's already aligned to 4-byte boundary or a new buffer
-		 */
-		function getPaddedArrayBuffer( arrayBuffer, paddingByte ) {
-
-			paddingByte = paddingByte || 0;
-
-			var paddedLength = getPaddedBufferSize( arrayBuffer.byteLength );
-
-			if ( paddedLength !== arrayBuffer.byteLength ) {
-
-				var array = new Uint8Array( paddedLength );
-				array.set( new Uint8Array( arrayBuffer ) );
-
-				if ( paddingByte !== 0 ) {
-
-					for ( var i = arrayBuffer.byteLength; i < paddedLength; i ++ ) {
-
-						array[ i ] = paddingByte;
-
-					}
-
-				}
-
-				return array.buffer;
-
-			}
-
-			return arrayBuffer;
+			return uri.split( '#' ).shift().split( '?' ).shift().split( '/' ).pop();
 
 		}
 
@@ -682,67 +691,75 @@ THREE.GLTFExporter.prototype = {
 			}
 
 			var gltfImage = { mimeType: mimeType };
+			var index = outputJSON.images.length;
 
-			if ( options.embedImages ) {
+			var canvas = cachedCanvas = cachedCanvas || document.createElement( 'canvas' );
 
-				var canvas = cachedCanvas = cachedCanvas || document.createElement( 'canvas' );
+			canvas.width = image.width;
+			canvas.height = image.height;
 
-				canvas.width = image.width;
-				canvas.height = image.height;
+			if ( options.forcePowerOfTwoTextures && ! isPowerOfTwo( image ) ) {
 
-				if ( options.forcePowerOfTwoTextures && ! isPowerOfTwo( image ) ) {
+				console.warn( 'GLTFExporter: Resized non-power-of-two image.', image );
 
-					console.warn( 'GLTFExporter: Resized non-power-of-two image.', image );
+				canvas.width = THREE.Math.floorPowerOfTwo( canvas.width );
+				canvas.height = THREE.Math.floorPowerOfTwo( canvas.height );
 
-					canvas.width = THREE.Math.floorPowerOfTwo( canvas.width );
-					canvas.height = THREE.Math.floorPowerOfTwo( canvas.height );
+			}
 
-				}
+			var ctx = canvas.getContext( '2d' );
 
-				var ctx = canvas.getContext( '2d' );
+			if ( flipY === true ) {
 
-				if ( flipY === true ) {
+				ctx.translate( 0, canvas.height );
+				ctx.scale( 1, - 1 );
 
-					ctx.translate( 0, canvas.height );
-					ctx.scale( 1, - 1 );
+			}
 
-				}
+			ctx.drawImage( image, 0, 0, canvas.width, canvas.height );
 
-				ctx.drawImage( image, 0, 0, canvas.width, canvas.height );
+			if ( options.mode === "glb" ) {
 
-				if ( options.binary === true ) {
+				pending.push( new Promise( function ( resolve, reject ) {
 
-					pending.push( new Promise( function ( resolve ) {
+					canvas.toBlob( function ( blob ) {
 
-						canvas.toBlob( function ( blob ) {
+						processBufferViewImage( blob ).then( function ( bufferViewIndex ) {
 
-							processBufferViewImage( blob ).then( function ( bufferViewIndex ) {
+							gltfImage.bufferView = bufferViewIndex;
 
-								gltfImage.bufferView = bufferViewIndex;
+							resolve();
 
-								resolve();
+						} ).catch( reject );
 
-							} );
+					}, mimeType );
 
-						}, mimeType );
+				} ) );
 
-					} ) );
+			} else if ( options.mode === "embedded" ) {
 
-				} else {
-
-					gltfImage.uri = canvas.toDataURL( mimeType );
-
-				}
+				gltfImage.uri = canvas.toDataURL( mimeType );
 
 			} else {
 
-				gltfImage.uri = image.src;
+				gltfImage.uri = getFileNameFromUri( image.src );
+
+				pending.push( new Promise( function ( resolve, reject ) {
+
+					canvas.toBlob( function ( blob ) {
+
+						outputImages[ index ] = blob;
+
+						resolve();
+
+					}, mimeType );
+
+				} ) );
 
 			}
 
 			outputJSON.images.push( gltfImage );
 
-			var index = outputJSON.images.length - 1;
 			cachedImages[ key ] = index;
 
 			return index;
@@ -1768,99 +1785,191 @@ THREE.GLTFExporter.prototype = {
 
 		}
 
+		function postProcessBuffers() {
+
+			return new Promise( function ( resolve, reject ) {
+
+				if ( outputJSON.buffers && outputJSON.buffers.length > 0 ) {
+
+					// Merge buffers
+					var blob = new Blob( buffers, { type: 'application/octet-stream' } );
+
+					// Update bytelength of the single buffer.
+					outputJSON.buffers[ 0 ].byteLength = blob.size;
+
+					if ( options.mode === "gltf" ) {
+
+						outputJSON.buffers[ 0 ].uri = "scene.bin";
+
+					} else if ( options.mode === "embedded" ) {
+
+						var reader = new window.FileReader();
+						reader.readAsDataURL( blob );
+						reader.onloadend = function () {
+
+							var base64data = reader.result;
+							outputJSON.buffers[ 0 ].uri = base64data;
+							outputBuffers.push( undefined );
+							resolve();
+
+						};
+						reader.onerror = reject;
+
+					}
+
+					if ( options.mode !== "embedded" ) {
+
+						outputBuffers.push( blob );
+						resolve();
+
+					}
+
+				}
+
+			} );
+
+		}
+
 		processInput( input );
 
-		Promise.all( pending ).then( function () {
-
-			// Merge buffers.
-			var blob = new Blob( buffers, { type: 'application/octet-stream' } );
+		Promise.all( pending ).then( postProcessBuffers ).then( function () {
 
 			// Declare extensions.
 			var extensionsUsedList = Object.keys( extensionsUsed );
 			if ( extensionsUsedList.length > 0 ) outputJSON.extensionsUsed = extensionsUsedList;
 
-			if ( outputJSON.buffers && outputJSON.buffers.length > 0 ) {
+			onDone( {
+				json: outputJSON,
+				buffers: outputBuffers,
+				images: outputImages
+			} );
 
-				// Update bytelength of the single buffer.
-				outputJSON.buffers[ 0 ].byteLength = blob.size;
+		} ).catch( onError );
+
+	},
+
+	/**
+	 * Given a chunks object returned by GLTFLoader.parseChunks, create a blob storing a valid .glb.
+	 * @param  {Object} chunks  chunks object returned by GLTFLoader.parseChunks
+	 * @param  {Function} onDone  Callback on completed
+	 * @param  {Function} onError  Callback on error
+	 */
+	createGLBBlob: function ( chunks, onDone, onError ) {
+
+		if ( chunks.buffers.length > 1 ) {
+
+			onError( new Error( "GLTFExporter: exportGLB expects 0 or 1 buffers." ) );
+			return;
+
+		}
+
+		// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
+
+		var GLB_HEADER_BYTES = 12;
+		var GLB_HEADER_MAGIC = 0x46546C67;
+		var GLB_VERSION = 2;
+
+		var GLB_CHUNK_PREFIX_BYTES = 8;
+		var GLB_CHUNK_TYPE_JSON = 0x4E4F534A;
+		var GLB_CHUNK_TYPE_BIN = 0x004E4942;
+
+		function readBinArrayBuffer( blob ) {
+
+			return new Promise( function ( resolve, reject ) {
 
 				var reader = new window.FileReader();
 
-				if ( options.binary === true ) {
+				reader.readAsArrayBuffer( blob );
+				reader.onloadend = function () {
 
-					// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
+					var binaryChunk = getPaddedArrayBuffer( reader.result );
+					resolve( binaryChunk );
 
-					var GLB_HEADER_BYTES = 12;
-					var GLB_HEADER_MAGIC = 0x46546C67;
-					var GLB_VERSION = 2;
+				};
 
-					var GLB_CHUNK_PREFIX_BYTES = 8;
-					var GLB_CHUNK_TYPE_JSON = 0x4E4F534A;
-					var GLB_CHUNK_TYPE_BIN = 0x004E4942;
+				reader.onerror = reject;
 
-					reader.readAsArrayBuffer( blob );
-					reader.onloadend = function () {
+			} );
 
-						// Binary chunk.
-						var binaryChunk = getPaddedArrayBuffer( reader.result );
-						var binaryChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
-						binaryChunkPrefix.setUint32( 0, binaryChunk.byteLength, true );
-						binaryChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_BIN, true );
+		}
 
-						// JSON chunk.
-						var jsonChunk = getPaddedArrayBuffer( stringToArrayBuffer( JSON.stringify( outputJSON ) ), 0x20 );
-						var jsonChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
-						jsonChunkPrefix.setUint32( 0, jsonChunk.byteLength, true );
-						jsonChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_JSON, true );
+		var pending = [];
+		var blobParts = [];
 
-						// GLB header.
-						var header = new ArrayBuffer( GLB_HEADER_BYTES );
-						var headerView = new DataView( header );
-						headerView.setUint32( 0, GLB_HEADER_MAGIC, true );
-						headerView.setUint32( 4, GLB_VERSION, true );
-						var totalByteLength = GLB_HEADER_BYTES
-							+ jsonChunkPrefix.byteLength + jsonChunk.byteLength
-							+ binaryChunkPrefix.byteLength + binaryChunk.byteLength;
-						headerView.setUint32( 8, totalByteLength, true );
+		// GLB header.
+		var header = new ArrayBuffer( GLB_HEADER_BYTES );
+		var headerView = new DataView( header );
+		headerView.setUint32( 0, GLB_HEADER_MAGIC, true );
+		headerView.setUint32( 4, GLB_VERSION, true );
 
-						var glbBlob = new Blob( [
-							header,
-							jsonChunkPrefix,
-							jsonChunk,
-							binaryChunkPrefix,
-							binaryChunk
-						], { type: 'application/octet-stream' } );
+		blobParts.push( header );
 
-						var glbReader = new window.FileReader();
-						glbReader.readAsArrayBuffer( glbBlob );
-						glbReader.onloadend = function () {
+		// JSON chunk.
+		var jsonChunk = getPaddedArrayBuffer( stringToArrayBuffer( JSON.stringify( chunks.json ) ), 0x20 );
+		var jsonChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+		jsonChunkPrefix.setUint32( 0, jsonChunk.byteLength, true );
+		jsonChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_JSON, true );
 
-							onDone( glbReader.result );
+		blobParts.push( jsonChunkPrefix, jsonChunk );
 
-						};
+		if ( chunks.buffers.length !== 0 ) {
 
-					};
+			var pendingBinChunk = readBinArrayBuffer( chunks.buffers[ 0 ] ).then( function ( binaryChunk ) {
 
-				} else {
+				var binaryChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+				binaryChunkPrefix.setUint32( 0, binaryChunk.byteLength, true );
+				binaryChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_BIN, true );
 
-					reader.readAsDataURL( blob );
-					reader.onloadend = function () {
+				var totalByteLength = GLB_HEADER_BYTES
+					+ jsonChunkPrefix.byteLength + jsonChunk.byteLength
+					+ binaryChunkPrefix.byteLength + binaryChunk.byteLength;
+				headerView.setUint32( 8, totalByteLength, true );
 
-						var base64data = reader.result;
-						outputJSON.buffers[ 0 ].uri = base64data;
-						onDone( outputJSON );
+				blobParts.push( binaryChunkPrefix, binaryChunk );
 
-					};
+			} );
 
-				}
+			pending.push( pendingBinChunk );
+
+		}
+
+		Promise.all( pending ).then( function ( ) {
+
+			var glbBlob = new Blob( blobParts, { type: 'application/octet-stream' } );
+			onDone( glbBlob );
+
+		} ).catch( onError );
+
+	},
+
+	/**
+	 * Parse scenes and generate GLTF output
+	 * @param  {THREE.Scene or [THREE.Scenes]} input   THREE.Scene or Array of THREE.Scenes
+	 * @param  {Function} onDone  Callback on completed
+	 * @param  {Function} onError  Callback on error
+	 * @param  {Object} options options
+	 */
+	parse: function ( input, onDone, onError, options ) {
+
+		var scope = this;
+
+		this.parseChunks( input, function ( chunks ) {
+
+			if ( options.mode === "gltf" ) {
+
+				onDone( chunks );
+
+			} else if ( options.mode === "embedded" ) {
+
+				onDone( chunks.json );
 
 			} else {
 
-				onDone( outputJSON );
+				scope.createGLBBlob( chunks, onDone, onError );
 
 			}
 
-		} );
+		}, onError, options );
 
 	}
 
