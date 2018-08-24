@@ -150,6 +150,10 @@ THREE.GLTFLoader = ( function () {
 							extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] = new GLTFTextureDDSExtension();
 							break;
 
+						case EXTENSIONS.MOZ_COMPONENTS:
+							extensions[ EXTENSIONS.MOZ_COMPONENTS ] = new GLTFComponentsExtension();
+							break;
+
 						default:
 
 							if ( extensionsRequired.indexOf( extensionName ) >= 0 ) {
@@ -240,7 +244,37 @@ THREE.GLTFLoader = ( function () {
 		KHR_LIGHTS_PUNCTUAL: 'KHR_lights_punctual',
 		KHR_MATERIALS_PBR_SPECULAR_GLOSSINESS: 'KHR_materials_pbrSpecularGlossiness',
 		KHR_MATERIALS_UNLIT: 'KHR_materials_unlit',
-		MSFT_TEXTURE_DDS: 'MSFT_texture_dds'
+		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		MOZ_COMPONENTS: 'MOZ_components'
+	};
+
+	/**
+	 * Component Data Extension
+	 *
+	 * Specification: PENDING
+	 */
+	function GLTFComponentsExtension() {
+
+		this.name = EXTENSIONS.MOZ_COMPONENTS;
+
+	}
+
+	GLTFComponentsExtension.prototype.addComponents = function ( object, definition ) {
+
+		var components = definition.extensions[ this.name ];
+
+		for ( var componentName in components ) {
+
+			var componentManager = THREE.ComponentRegistry.getManager( componentName );
+
+			if ( componentManager && componentManager.options.shouldLoad ) {
+
+				componentManager.fromJSON( object, components[ componentName ] );
+
+			}
+
+		}
+
 	};
 
 	/**
@@ -2985,6 +3019,12 @@ THREE.GLTFLoader = ( function () {
 
 			}
 
+			if ( nodeDef.extensions && nodeDef.extensions[ EXTENSIONS.MOZ_COMPONENTS ] ) {
+
+				extensions[ EXTENSIONS.MOZ_COMPONENTS ].addComponents( node, nodeDef );
+
+			}
+
 			assignExtrasToUserData( node, nodeDef );
 
 			if ( nodeDef.extensions ) addUnknownExtensionsToUserData( extensions, node, nodeDef );
@@ -3120,6 +3160,12 @@ THREE.GLTFLoader = ( function () {
 				if ( sceneDef.name !== undefined ) scene.name = sceneDef.name;
 
 				assignExtrasToUserData( scene, sceneDef );
+
+				if ( sceneDef.extensions && sceneDef.extensions[ EXTENSIONS.MOZ_COMPONENTS ] ) {
+
+					extensions[ EXTENSIONS.MOZ_COMPONENTS ].addComponents( scene, sceneDef );
+
+				}
 
 				if ( sceneDef.extensions ) addUnknownExtensionsToUserData( extensions, scene, sceneDef );
 

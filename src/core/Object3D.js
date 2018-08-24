@@ -6,6 +6,7 @@ import { Euler } from '../math/Euler.js';
 import { Layers } from './Layers.js';
 import { Matrix3 } from '../math/Matrix3.js';
 import { _Math } from '../math/Math.js';
+import { ComponentRegistry } from "../ecs/ComponentRegistry.js";
 
 /**
  * @author mrdoob / http://mrdoob.com/
@@ -91,6 +92,7 @@ function Object3D() {
 	this.frustumCulled = true;
 	this.renderOrder = 0;
 
+	this.components = {};
 	this.userData = {};
 
 }
@@ -611,6 +613,24 @@ Object3D.prototype = Object.assign( Object.create( EventDispatcher.prototype ), 
 
 	},
 
+	addComponent: function ( componentName, props ) {
+
+		return ComponentRegistry.getManager( componentName ).add( this, props );
+
+	},
+
+	getComponent: function ( componentName ) {
+
+		return ComponentRegistry.getManager( componentName ).get( this );
+
+	},
+
+	removeComponent: function ( componentName ) {
+
+		return ComponentRegistry.getManager( componentName ).remove( this );
+
+	},
+
 	toJSON: function ( meta ) {
 
 		// meta is a string when called from JSON.stringify
@@ -811,6 +831,16 @@ Object3D.prototype = Object.assign( Object.create( EventDispatcher.prototype ), 
 
 		this.frustumCulled = source.frustumCulled;
 		this.renderOrder = source.renderOrder;
+
+		for ( var componentName in source.components ) {
+
+			if ( source.components[ componentName ] ) {
+
+				ComponentRegistry.getManager( componentName ).copy( this, source );
+
+			}
+
+		}
 
 		this.userData = JSON.parse( JSON.stringify( source.userData ) );
 
