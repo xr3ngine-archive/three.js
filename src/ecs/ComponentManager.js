@@ -219,3 +219,5 @@ ComponentManager.prototype.toJSON = function ( object ) {
 	return json;
 
 };
+
+export { ComponentManager };
