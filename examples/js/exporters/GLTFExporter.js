@@ -73,7 +73,8 @@ THREE.GLTFExporter.prototype = {
 			embedImages: true,
 			animations: [],
 			forceIndices: false,
-			forcePowerOfTwoTextures: false
+			forcePowerOfTwoTextures: false,
+			includeCustomExtensions: false
 		};
 
 		options = Object.assign( {}, DEFAULT_OPTIONS, options );
@@ -331,20 +332,49 @@ THREE.GLTFExporter.prototype = {
 		 * Serializes a userData.
 		 *
 		 * @param {THREE.Object3D|THREE.Material} object
-		 * @returns {Object}
+		 * @param {Object} gltfProperty
 		 */
-		function serializeUserData( object ) {
+		function serializeUserData( object, gltfProperty ) {
+
+			if ( ! object.userData || Object.keys( object.userData ).length === 0 ) {
+
+				return;
+
+			}
 
 			try {
 
-				return JSON.parse( JSON.stringify( object.userData ) );
+				var json = JSON.parse( JSON.stringify( object.userData ) );
+
+				if ( options.includeCustomExtensions && json.gltfExtensions ) {
+
+					if ( gltfProperty.extensions === undefined ) {
+
+						gltfProperty.extensions = {};
+
+					}
+
+					for ( var extensionName in json.gltfExtensions ) {
+
+						gltfProperty.extensions[ extensionName ] = json.gltfExtensions[ extensionName ];
+						extensionsUsed[ extensionName ] = true;
+
+					}
+
+				}
+
+				delete json.gltfExtensions;
+
+				if ( Object.keys( json ).length > 0 ) {
+
+					gltfProperty.extras = json;
+
+				}
 
 			} catch ( error ) {
 
 				console.warn( 'THREE.GLTFExporter: userData of \'' + object.name + '\' ' +
 					'won\'t be serialized because of JSON.stringify error - ' + error.message );
-
-				return {};
 
 			}
 
@@ -1018,11 +1048,7 @@ THREE.GLTFExporter.prototype = {
 
 			}
 
-			if ( Object.keys( material.userData ).length > 0 ) {
-
-				gltfMaterial.extras = serializeUserData( material );
-
-			}
+			serializeUserData( material, gltfMaterial );
 
 			outputJSON.materials.push( gltfMaterial );
 
@@ -1240,8 +1266,6 @@ THREE.GLTFExporter.prototype = {
 
 			}
 
-			var extras = ( Object.keys( geometry.userData ).length > 0 ) ? serializeUserData( geometry ) : undefined;
-
 			var forceIndices = options.forceIndices;
 			var isMultiMaterial = Array.isArray( mesh.material );
 
@@ -1283,7 +1307,7 @@ THREE.GLTFExporter.prototype = {
 					attributes: attributes,
 				};
 
-				if ( extras ) primitive.extras = extras;
+				serializeUserData( geometry, primitive );
 
 				if ( targets.length > 0 ) primitive.targets = targets;
 
@@ -1628,11 +1652,7 @@ THREE.GLTFExporter.prototype = {
 
 			}
 
-			if ( object.userData && Object.keys( object.userData ).length > 0 ) {
-
-				gltfNode.extras = serializeUserData( object );
-
-			}
+			serializeUserData( object, gltfNode );
 
 			if ( object.isMesh || object.isLine || object.isPoints ) {
 
@@ -1764,6 +1784,8 @@ THREE.GLTFExporter.prototype = {
 				gltfScene.nodes = nodes;
 
 			}
+
+			serializeUserData( scene, gltfScene );
 
 		}
 
