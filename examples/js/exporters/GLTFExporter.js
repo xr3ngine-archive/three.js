@@ -350,6 +350,45 @@ THREE.GLTFExporter.prototype = {
 
 		}
 
+		function isEmpty( object ) {
+
+			for ( var key in object ) return false;
+			return true;
+
+		}
+
+		/**
+		 * Serializes components.
+		 *
+		 * @param {THREE.Object3D|THREE.Scene} object
+		 * @returns {Object|null}
+		 */
+		function serializeComponents( object ) {
+
+			var serizlizedComponents = null;
+
+			for ( var componentName in object.components ) {
+
+				var componentManager = THREE.ComponentRegistry.getManager( componentName );
+
+				if ( componentManager && componentManager.options.shouldExport ) {
+
+					if ( ! serializedComponents ) {
+
+						serializeComponents = {};
+
+					}
+
+					serializeComponents[ componentName ] = componentManager.toJSON( object );
+
+				}
+
+			}
+
+			return serializedComponents;
+
+		}
+
 		/**
 		 * Process a buffer to append to the default one.
 		 * @param  {ArrayBuffer} buffer
@@ -1573,6 +1612,22 @@ THREE.GLTFExporter.prototype = {
 
 			}
 
+			if ( object.components ) {
+
+				var component = serializeComponents( object );
+
+				if ( components ) {
+
+					gltfNode.extensions = {
+						MOZ_components: components
+					};
+
+					extensionsUsed[ 'MOZ_components' ] = true;
+
+				}
+
+			}
+
 			if ( object.userData && Object.keys( object.userData ).length > 0 ) {
 
 				gltfNode.extras = serializeUserData( object );
@@ -1663,6 +1718,22 @@ THREE.GLTFExporter.prototype = {
 			if ( scene.name !== '' ) {
 
 				gltfScene.name = scene.name;
+
+			}
+
+			if ( scene.components ) {
+
+				var component = serializeComponents( scene );
+
+				if ( components ) {
+
+					gltfNode.extensions = {
+						MOZ_components: components
+					};
+
+					extensionsUsed[ 'MOZ_components' ] = true;
+
+				}
 
 			}
 
