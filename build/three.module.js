@@ -44926,6 +44926,12 @@ BoxHelper.prototype.setFromObject = function ( object ) {
 
 };
 
+BoxHelper.prototype.clone = function () {
+
+	return new this.constructor( this.object );
+
+};
+
 /**
  * @author WestLangley / http://github.com/WestLangley
  */
