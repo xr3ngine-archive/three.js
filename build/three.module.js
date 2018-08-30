@@ -44926,9 +44926,11 @@ BoxHelper.prototype.setFromObject = function ( object ) {
 
 };
 
-BoxHelper.prototype.clone = function () {
+BoxHelper.prototype.clone = function ( recursive ) {
 
-	return new this.constructor( this.object );
+	const cloned = new this.constructor( this.object );
+	Object3D.prototype.copy.call( cloned, this, recursive );
+	return cloned;
 
 };
 
