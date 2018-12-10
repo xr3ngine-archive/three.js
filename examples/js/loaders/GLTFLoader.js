@@ -180,6 +180,12 @@ THREE.GLTFLoader = ( function () {
 
 			} );
 
+			if ( this.customURLResolver ) {
+
+				parser.customURLResolver = this.customURLResolver;
+
+			}
+
 			if ( this.lazy ) {
 
 				onLoad( { parser: parser } );
@@ -1157,7 +1163,7 @@ THREE.GLTFLoader = ( function () {
 
 	/* UTILITY FUNCTIONS */
 
-	function resolveURL( url, path ) {
+	function defaultResolveURL( url, path ) {
 
 		// Invalid URL
 		if ( typeof url !== 'string' || url === '' ) return '';
@@ -1799,6 +1805,7 @@ THREE.GLTFLoader = ( function () {
 
 		var bufferDef = this.json.buffers[ bufferIndex ];
 		var loader = this.fileLoader;
+		var resolveURL = this.customURLResolver || defaultResolveURL;
 
 		if ( bufferDef.type && bufferDef.type !== 'arraybuffer' ) {
 
@@ -1987,6 +1994,7 @@ THREE.GLTFLoader = ( function () {
 		var json = this.json;
 		var options = this.options;
 		var textureLoader = this.textureLoader;
+		var resolveURL = this.customURLResolver || defaultResolveURL;
 
 		var URL = window.URL || window.webkitURL;
 
