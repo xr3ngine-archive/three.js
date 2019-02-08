@@ -192,6 +192,10 @@ THREE.GLTFLoader = ( function () {
 							extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] = new GLTFTextureDDSExtension( json );
 							break;
 
+						case EXTENSIONS.MOZ_TEXTURE_KTX:
+							extensions[ EXTENSIONS.MOZ_TEXTURE_KTX ] = new GLTFTextureKTXExtension( json );
+							break;
+
 						case EXTENSIONS.KHR_TEXTURE_TRANSFORM:
 							extensions[ EXTENSIONS.KHR_TEXTURE_TRANSFORM ] = new GLTFTextureTransformExtension( json );
 							break;
@@ -287,7 +291,8 @@ THREE.GLTFLoader = ( function () {
 		KHR_MATERIALS_PBR_SPECULAR_GLOSSINESS: 'KHR_materials_pbrSpecularGlossiness',
 		KHR_MATERIALS_UNLIT: 'KHR_materials_unlit',
 		KHR_TEXTURE_TRANSFORM: 'KHR_texture_transform',
-		MSFT_TEXTURE_DDS: 'MSFT_texture_dds'
+		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		MOZ_TEXTURE_KTX: 'MOZ_texture_ktx'
 	};
 
 	/**
@@ -307,6 +312,26 @@ THREE.GLTFLoader = ( function () {
 
 		this.name = EXTENSIONS.MSFT_TEXTURE_DDS;
 		this.ddsLoader = new THREE.DDSLoader();
+
+	}
+
+	/**
+	 * KTX Texture Extension
+	 *
+	 * Specification:
+	 * TBD
+	 *
+	 */
+	function GLTFTextureKTXExtension() {
+
+		if ( ! THREE.KTXLoader ) {
+
+			throw new Error( 'THREE.GLTFLoader: Attempting to load .ktx texture without importing THREE.KTXLoader' );
+
+		}
+
+		this.name = EXTENSIONS.MOZ_TEXTURE_KTX;
+		this.ktxLoader = new THREE.KTXLoader();
 
 	}
 
@@ -2140,6 +2165,10 @@ THREE.GLTFLoader = ( function () {
 
 			source = json.images[ textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].source ];
 
+		} else if ( textureExtensions[ EXTENSIONS.MOZ_TEXTURE_KTX ] ) {
+
+			source = json.images[ textureExtensions[ EXTENSIONS.MOZ_TEXTURE_KTX ].source ];
+		
 		} else {
 
 			source = json.images[ textureDef.source ];
@@ -2172,9 +2201,19 @@ THREE.GLTFLoader = ( function () {
 
 			if ( ! loader ) {
 
-				loader = textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ]
-					? parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader
-					: textureLoader;
+				if ( textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader;
+
+				} else if ( textureExtensions[ EXTENSIONS.MOZ_TEXTURE_KTX ] ) {
+
+					loader = parser.extensions[ EXTENSIONS.MOZ_TEXTURE_KTX ].ktxLoader;
+
+				} else {
+
+					loader = textureLoader;
+
+				}
 
 			}
 
