@@ -1053,6 +1053,7 @@ function WebGLRenderer( parameters ) {
 	var onAnimationFrameCallback = null;
 
 	function onAnimationFrame( time ) {
+
 		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time );
 
 	}
