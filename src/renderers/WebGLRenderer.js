@@ -1382,13 +1382,14 @@ function WebGLRenderer( parameters ) {
 
 						var viewport = vr.getDevice().getViews()[ 0 ].getViewport();
 						state.viewport( _currentViewport.set( viewport.x, viewport.y, viewport.width, viewport.height ) );
+
 					}
 
 					currentRenderState.setupLights( multiview.camera );
 					renderObject( object, scene, cameras[ 0 ], geometry, material, group );
 
 					multiview.inProgress = false;
-					multiview.camera = null
+					multiview.camera = null;
 
 					continue;
 

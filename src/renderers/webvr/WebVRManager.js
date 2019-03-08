@@ -59,6 +59,7 @@ function WebVRManager( renderer ) {
 	var multiviewAvailability = null;
 
 	function checkMultiviewAvailability() {
+
 		if ( ! device.getViews ) return false;
 
 		var views = device.getViews();
