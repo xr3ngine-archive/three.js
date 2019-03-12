@@ -95,6 +95,7 @@ function WebXRManager( renderer ) {
 
 		renderer.setFramebuffer( null );
 		animation.stop();
+		renderer.animation.start();
 
 	}
 
@@ -130,6 +131,7 @@ function WebXRManager( renderer ) {
 
 				animation.setContext( session );
 				animation.start();
+				renderer.animation.stop();
 
 			} );
 

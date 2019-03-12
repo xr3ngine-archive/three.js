@@ -75,6 +75,7 @@ function WebVRManager( renderer ) {
 
 			renderer.setDrawingBufferSize( renderWidth * 2, renderHeight, 1 );
 
+			renderer.animation.stop();
 			animation.start();
 
 		} else {
@@ -86,6 +87,7 @@ function WebVRManager( renderer ) {
 			}
 
 			animation.stop();
+			renderer.animation.start();
 
 		}
 

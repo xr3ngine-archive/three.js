@@ -1054,13 +1054,13 @@ function WebGLRenderer( parameters ) {
 
 	function onAnimationFrame( time ) {
 
-		if ( vr.isPresenting() ) return;
 		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time );
 
 	}
 
 	var animation = new WebGLAnimation();
 	animation.setAnimationLoop( onAnimationFrame );
+	this.animation = animation;
 
 	if ( typeof window !== 'undefined' ) animation.setContext( window );
 
