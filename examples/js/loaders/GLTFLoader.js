@@ -1669,6 +1669,8 @@ THREE.GLTFLoader = ( function () {
 
 			onLoad( result );
 
+			parser.cache.removeAll();
+
 		} ).catch( onError );
 
 	};
