@@ -736,6 +736,16 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			}
 
+			if ( window.ImageBitmap && texture.image instanceof ImageBitmap ) {
+
+				console.info( "upload texture", "ImageBitmap", texture.id );
+
+			} else if ( texture.image instanceof HTMLImageElement ) {
+
+				console.info( "upload texture", "HTMLImageElement", texture.id, texture.image.src );
+
+			}
+
 		}
 
 		if ( textureNeedsGenerateMipmaps( texture, supportsMips ) ) {

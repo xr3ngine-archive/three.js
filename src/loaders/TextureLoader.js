@@ -52,6 +52,7 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.onUpdate = function () {
 
+				console.info( "Removing texture", texture.id, url );
 				Cache.remove( cacheKey );
 				texture.image.close && texture.image.close();
 				delete texture.image;
