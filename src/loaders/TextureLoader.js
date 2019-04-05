@@ -4,6 +4,7 @@
 
 import { RGBAFormat, RGBFormat } from '../constants.js';
 import { ImageLoader } from './ImageLoader.js';
+import { ImageBitmapLoader } from './ImageBitmapLoader.js';
 import { Texture } from '../textures/Texture.js';
 import { DefaultLoadingManager } from './LoadingManager.js';
 
@@ -22,7 +23,18 @@ Object.assign( TextureLoader.prototype, {
 
 		var texture = new Texture();
 
-		var loader = new ImageLoader( this.manager );
+		var loader;
+		if ( window.createImageBitmap !== undefined ) {
+
+			loader = new ImageBitmapLoader( this.manager );
+			texture.flipY = false;
+
+		} else {
+
+			loader = new ImageLoader( this.manager );
+
+		}
+
 		loader.setCrossOrigin( this.crossOrigin );
 		loader.setPath( this.path );
 
