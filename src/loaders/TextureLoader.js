@@ -8,6 +8,7 @@ import { ImageBitmapLoader } from './ImageBitmapLoader.js';
 import { Texture } from '../textures/Texture.js';
 import { DefaultLoadingManager } from './LoadingManager.js';
 
+import { Cache } from './Cache.js';
 
 function TextureLoader( manager ) {
 
@@ -38,6 +39,7 @@ Object.assign( TextureLoader.prototype, {
 		loader.setCrossOrigin( this.crossOrigin );
 		loader.setPath( this.path );
 
+		const cacheKey = this.manager.resolveURL( url );
 		loader.load( url, function ( image ) {
 
 			texture.image = image;
@@ -47,6 +49,14 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.format = isJPEG ? RGBFormat : RGBAFormat;
 			texture.needsUpdate = true;
+
+			texture.onUpdate = function () {
+
+				Cache.remove( cacheKey );
+				texture.image.close && texture.image.close();
+				delete texture.image;
+
+			};
 
 			if ( onLoad !== undefined ) {
 
