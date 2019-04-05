@@ -33,7 +33,7 @@ PlaneGeometry.prototype.constructor = PlaneGeometry;
 
 // PlaneBufferGeometry
 
-function PlaneBufferGeometry( width, height, widthSegments, heightSegments, flipY = true) {
+function PlaneBufferGeometry( width, height, widthSegments, heightSegments, flipY = true ) {
 
 	BufferGeometry.call( this );
 
