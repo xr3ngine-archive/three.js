@@ -9,7 +9,7 @@ import { Float32BufferAttribute } from '../core/BufferAttribute.js';
 
 // PlaneGeometry
 
-function PlaneGeometry( width, height, widthSegments, heightSegments ) {
+function PlaneGeometry( width, height, widthSegments, heightSegments, flipY ) {
 
 	Geometry.call( this );
 
@@ -19,7 +19,8 @@ function PlaneGeometry( width, height, widthSegments, heightSegments ) {
 		width: width,
 		height: height,
 		widthSegments: widthSegments,
-		heightSegments: heightSegments
+		heightSegments: heightSegments,
+		flipY
 	};
 
 	this.fromBufferGeometry( new PlaneBufferGeometry( width, height, widthSegments, heightSegments ) );
@@ -32,7 +33,7 @@ PlaneGeometry.prototype.constructor = PlaneGeometry;
 
 // PlaneBufferGeometry
 
-function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
+function PlaneBufferGeometry( width, height, widthSegments, heightSegments, flipY = true ) {
 
 	BufferGeometry.call( this );
 
@@ -42,7 +43,8 @@ function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
 		width: width,
 		height: height,
 		widthSegments: widthSegments,
-		heightSegments: heightSegments
+		heightSegments: heightSegments,
+		flipY: flipY
 	};
 
 	width = width || 1;
@@ -84,7 +86,11 @@ function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
 			normals.push( 0, 0, 1 );
 
 			uvs.push( ix / gridX );
-			uvs.push( 1 - ( iy / gridY ) );
+			uvs.push(
+				flipY ?
+					1 - ( iy / gridY ) :
+					iy / gridY
+			);
 
 		}
 
