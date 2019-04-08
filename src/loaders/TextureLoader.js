@@ -55,7 +55,6 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.onUpdate = function () {
 
-				console.info( "Removing texture", texture.id, url );
 				texture.image.close && texture.image.close();
 				delete texture.image;
 
