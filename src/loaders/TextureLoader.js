@@ -42,6 +42,9 @@ Object.assign( TextureLoader.prototype, {
 		const cacheKey = this.manager.resolveURL( url );
 		loader.load( url, function ( image ) {
 
+			// Image was just added to cache before this function gets called, disable caching by immediatly removing it
+			Cache.remove( cacheKey );
+
 			texture.image = image;
 
 			// JPEGs can't have an alpha channel, so memory can be saved by storing them as RGB.
@@ -53,7 +56,6 @@ Object.assign( TextureLoader.prototype, {
 			texture.onUpdate = function () {
 
 				console.info( "Removing texture", texture.id, url );
-				Cache.remove( cacheKey );
 				texture.image.close && texture.image.close();
 				delete texture.image;
 
