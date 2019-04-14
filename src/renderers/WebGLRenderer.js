@@ -1138,11 +1138,11 @@ function WebGLRenderer( parameters ) {
 
 	// Rendering
 
-	this.render = function ( scene, camera ) {
+	this.render = function ( scene, camera, renderTarget, forceClear ) {
 
 		var renderTarget, forceClear;
 
-		if ( arguments[ 2 ] !== undefined ) {
+		/*if ( arguments[ 2 ] !== undefined ) {
 
 			console.warn( 'THREE.WebGLRenderer.render(): the renderTarget argument has been removed. Use .setRenderTarget() instead.' );
 			renderTarget = arguments[ 2 ];
@@ -1154,7 +1154,7 @@ function WebGLRenderer( parameters ) {
 			console.warn( 'THREE.WebGLRenderer.render(): the forceClear argument has been removed. Use .clear() instead.' );
 			forceClear = arguments[ 3 ];
 
-		}
+		}*/
 
 		if ( ! ( camera && camera.isCamera ) ) {
 
