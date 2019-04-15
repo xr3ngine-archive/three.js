@@ -132,8 +132,26 @@ function WebGLRenderList() {
 
 	function sort() {
 
-		if ( opaque.length > 1 ) opaque.sort( painterSortStable );
-		if ( transparent.length > 1 ) transparent.sort( reversePainterSortStable );
+		if ( opaque.length > 1 ) insertionSort( opaque, painterSortStable );
+		if ( transparent.length > 1 ) insertionSort( transparent, reversePainterSortStable );
+
+	}
+
+	function insertionSort( items, compareFunction ) {
+
+		for ( var i = 0; i < items.length; i ++ ) {
+
+			var value = items[ i ];
+			for ( var j = i - 1; j >= 0 && compareFunction( items[ j ], value ); j -- ) {
+
+				items[ j + 1 ] = items[ j ];
+
+			}
+			items[ j + 1 ] = value;
+
+		}
+
+		return items;
 
 	}
 
