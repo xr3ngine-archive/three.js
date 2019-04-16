@@ -1207,7 +1207,14 @@ function WebGLRenderer( parameters ) {
 
 		if ( _this.sortObjects === true ) {
 
-			currentRenderList.sort();
+			if (window.useNative) {
+
+				currentRenderList.sortNative();
+
+			} else {
+
+				currentRenderList.sort();
+			}
 
 		}
 

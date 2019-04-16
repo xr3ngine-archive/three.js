@@ -1,3 +1,33 @@
+window.nativeSortTimes = [];
+window.nativeSortIndex = 0;
+window.insertionSortTimes = [];
+window.insertionSortIndex = 0;
+
+function average (array) {
+  let sum = 0;
+  for (let i=0; i<array.length; i++){
+    sum += array[i];
+  }
+  return sum / array.length;
+}
+
+function testSort () {
+  window.useNative = true;
+  window.nativeSortindex = 0;
+  console.log("Testing...");
+  window.setTimeout( () => {
+    console.log( "Native sort" );
+    console.log( "%.10f", average( window.nativeSortTimes ) );
+    window.useNative = false;
+    window.insertionSortIndex = 0;
+    window.setTimeout( () => {
+      window.useNative = true;
+      console.log( "Insertion sort");
+      console.log( "%.10f", average( window.insertionSortTimes ) );
+    }, 8000 );
+  }, 8000);
+}
+
 /**
  * @author mrdoob / http://mrdoob.com/
  */
@@ -130,10 +160,25 @@ function WebGLRenderList() {
 
 	}
 
+	function sortNative() {
+
+		var start = performance.now();
+
+		if ( opaque.length > 1 ) opaque.sort( painterSortStable );
+		if ( transparent.length > 1 ) transparent.sort( reversePainterSortStable );
+		window.nativeSortTimes[window.nativeSortIndex]= performance.now() - start;
+		window.nativeSortIndex = (window.nativeSortIndex + 1) % 200;
+
+	}
+
 	function sort() {
+
+		var start = performance.now();
 
 		if ( opaque.length > 1 ) insertionSort( opaque, painterSortStable );
 		if ( transparent.length > 1 ) insertionSort( transparent, reversePainterSortStable );
+		window.insertionSortTimes[window.insertionSortIndex]= performance.now() - start;
+		window.insertionSortIndex = (window.insertionSortIndex + 1) % 200;
 
 	}
 
@@ -163,7 +208,8 @@ function WebGLRenderList() {
 		push: push,
 		unshift: unshift,
 
-		sort: sort
+		sort: sort,
+		sortNative: sortNative
 	};
 
 }
