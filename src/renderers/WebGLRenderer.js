@@ -1011,6 +1011,53 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	this.prepareMaterialsAndPrograms = function ( scene, camera, lights, shadows, objects ) {
+
+		currentRenderState = renderStates.get( scene, camera );
+		currentRenderState.init();
+
+		for ( var i = 0; i < lights.length; i ++ ) {
+
+			currentRenderState.pushLight( lights[ i ] );
+
+		}
+
+		for ( var i = 0; i < shadows.length; i ++ ) {
+
+			currentRenderState.pushShadow( shadows[ i ] );
+
+		}
+
+		currentRenderState.setupLights( camera );
+
+		for ( var o = 0; o < objects.length; o ++ ) {
+
+			var object = objects[ o ];
+
+			if ( object.material ) {
+
+				if ( Array.isArray( object.material ) ) {
+
+					for ( var i = 0; i < object.material.length; i ++ ) {
+
+						state.setMaterial( object.material[ i ] );
+						setProgram( camera, scene.fog, object.material[ i ], object );
+
+					}
+
+				} else {
+
+					state.setMaterial( object.material );
+					setProgram( camera, scene.fog, object.material, object );
+
+				}
+
+			}
+
+		}
+
+	};
+
 	this.compileAndUploadMaterials = function ( scene, camera ) {
 
 		currentRenderState = renderStates.get( scene, camera );
