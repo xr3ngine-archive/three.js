@@ -653,12 +653,12 @@ THREE.GLTFExporter.prototype = {
 
 		}
 
-		function transformImage ( image, mimeType, flipY, onError, onDone ) {
+		function transformImage( image, mimeType, flipY, onError, onDone ) {
 
 			var shouldResize = options.forcePowerOfTwoTextures && ! isPowerOfTwo( image );
 
 
-			if ( !shouldResize && !flipY ) {
+			if ( ! shouldResize && ! flipY ) {
 
 				fetch( image.src )
 					.then( function ( response ) {

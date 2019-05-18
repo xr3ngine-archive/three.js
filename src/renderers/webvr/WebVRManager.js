@@ -92,16 +92,6 @@ function WebVRManager( renderer ) {
 
 			renderer.setDrawingBufferSize( renderWidth * 2, renderHeight, 1 );
 
-			multiviewAvailability = checkMultiviewAvailability();
-
-			if ( multiviewAvailability ) {
-
-				renderer.setFramebuffer( device.getViews()[ 0 ].framebuffer );
-				renderer.setRenderTarget( renderer.getRenderTarget() );
-
-			}
-
-			renderer.animation.stop();
 			cameraL.viewport.set( 0, 0, renderWidth, renderHeight );
 			cameraR.viewport.set( renderWidth, 0, renderWidth, renderHeight );
 
