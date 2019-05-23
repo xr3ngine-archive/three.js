@@ -657,7 +657,6 @@ THREE.GLTFExporter.prototype = {
 
 			var shouldResize = options.forcePowerOfTwoTextures && ! isPowerOfTwo( image );
 
-
 			if ( ! shouldResize && ! flipY ) {
 
 				fetch( image.src )
