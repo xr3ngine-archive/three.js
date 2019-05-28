@@ -1,15 +1,15 @@
 import { Texture } from './Texture';
 import {
-  Mapping,
-  Wrapping,
-  TextureFilter,
-  PixelFormat,
-  TextureDataType,
-  TextureEncoding,
+	Mapping,
+	Wrapping,
+	TextureFilter,
+	PixelFormat,
+	TextureDataType,
 } from '../constants';
 
 export class VideoTexture extends Texture {
-  constructor(
+
+	constructor(
     video: HTMLVideoElement,
     mapping?: Mapping,
     wrapS?: Wrapping,
@@ -20,4 +20,5 @@ export class VideoTexture extends Texture {
     type?: TextureDataType,
     anisotropy?: number
   );
+
 }

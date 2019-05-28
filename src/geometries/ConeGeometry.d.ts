@@ -1,9 +1,9 @@
 import { CylinderGeometry } from './CylinderGeometry';
 import { CylinderBufferGeometry } from './CylinderGeometry';
-import { BufferGeometry } from '../core/BufferGeometry';
 
-export class ConeBufferGeometry extends BufferGeometry {
-  constructor(
+export class ConeBufferGeometry extends CylinderBufferGeometry {
+
+	constructor(
     radius?: number,
     height?: number,
     radialSegment?: number,
@@ -12,10 +12,12 @@ export class ConeBufferGeometry extends BufferGeometry {
     thetaStart?: number,
     thetaLength?: number
   );
+
 }
 
 export class ConeGeometry extends CylinderGeometry {
-  constructor(
+
+	constructor(
     radius?: number,
     height?: number,
     radialSegment?: number,
@@ -24,4 +26,5 @@ export class ConeGeometry extends CylinderGeometry {
     thetaStart?: number,
     thetaLength?: number
   );
+
 }
