@@ -1218,11 +1218,15 @@ function WebGLRenderer( parameters ) {
 		currentRenderList = renderLists.get( scene, camera );
 		currentRenderList.init();
 
+		var shouldProjectObject = true;
+
 		if ( buildRenderList ) {
 
-			buildRenderList( currentRenderList, currentRenderState, scene, camera, this.sortObjects, _frustum, objects );
+			shouldProjectObject = buildRenderList( currentRenderList, currentRenderState, scene, camera, this.sortObjects, _frustum, objects, _projScreenMatrix );
 
-		} else {
+		}
+		
+		if (shouldProjectObject) {
 
 			projectObject( scene, camera, 0, _this.sortObjects );
 
