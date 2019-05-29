@@ -338,7 +338,7 @@ function WebGLRenderer( parameters ) {
 
 	this.setBuildRenderList = function( callback ) {
 
-		_buildRenderList = callback;
+		buildRenderList = callback;
 
 	};
 
