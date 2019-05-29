@@ -14384,6 +14384,23 @@ Object.assign( Triangle, {
 
 		};
 
+	}(),
+
+	isFrontFacing: function () {
+
+		var v0 = new Vector3();
+		var v1 = new Vector3();
+
+		return function isFrontFacing( a, b, c, direction ) {
+
+			v0.subVectors( c, b );
+			v1.subVectors( a, b );
+
+			// strictly front facing
+			return ( v0.cross( v1 ).dot( direction ) < 0 ) ? true : false;
+
+		};
+
 	}()
 
 } );
@@ -14480,15 +14497,21 @@ Object.assign( Triangle.prototype, {
 
 	},
 
+	getUV: function ( point, uv1, uv2, uv3, target ) {
+
+		return Triangle.getUV( point, this.a, this.b, this.c, uv1, uv2, uv3, target );
+
+	},
+
 	containsPoint: function ( point ) {
 
 		return Triangle.containsPoint( point, this.a, this.b, this.c );
 
 	},
 
-	getUV: function ( point, uv1, uv2, uv3, result ) {
+	isFrontFacing: function ( direction ) {
 
-		return Triangle.getUV( point, this.a, this.b, this.c, uv1, uv2, uv3, result );
+		return Triangle.isFrontFacing( this.a, this.b, this.c, direction );
 
 	},
 
@@ -19295,6 +19318,8 @@ function WebGLShadowMap( _renderer, _objects, maxTextureSize ) {
 		if ( lights.length === 0 ) return;
 
 		var currentRenderTarget = _renderer.getRenderTarget();
+		var activeCubeFace = _renderer.getActiveCubeFace();
+		var activeMipMapLevel = _renderer.getActiveMipMapLevel();
 
 		var _state = _renderer.state;
 
@@ -19452,7 +19477,7 @@ function WebGLShadowMap( _renderer, _objects, maxTextureSize ) {
 
 		scope.needsUpdate = false;
 
-		_renderer.setRenderTarget( currentRenderTarget );
+		_renderer.setRenderTarget( currentRenderTarget, activeCubeFace, activeMipMapLevel );
 
 	};
 
@@ -22770,13 +22795,12 @@ function WebXRManager( renderer ) {
 
 	var gl = renderer.context;
 
-	var device = null;
 	var session = null;
 
 	var framebufferScaleFactor = 1.0;
 
-	var frameOfReference = null;
-	var frameOfReferenceType = 'stage';
+	var referenceSpace = null;
+	var referenceSpaceType = 'local-floor';
 
 	var pose = null;
 	var poseTarget = null;
@@ -22786,7 +22810,7 @@ function WebXRManager( renderer ) {
 
 	function isPresenting() {
 
-		return session !== null && frameOfReference !== null;
+		return session !== null && referenceSpace !== null;
 
 	}
 
@@ -22830,25 +22854,19 @@ function WebXRManager( renderer ) {
 
 	};
 
-	this.getDevice = function () {
-
-		return device;
-
-	};
-
-	this.setDevice = function ( value ) {
-
-		if ( value !== undefined ) device = value;
-		if ( value instanceof XRDevice ) gl.setCompatibleXRDevice( value );
-
-	};
-
 	//
 
 	function onSessionEvent( event ) {
 
-		var controller = controllers[ inputSources.indexOf( event.inputSource ) ];
-		if ( controller ) controller.dispatchEvent( { type: event.type } );
+		for ( var i = 0; i < controllers.length; i ++ ) {
+
+			if ( inputSources[ i ] === event.inputSource ) {
+
+				controllers[ i ].dispatchEvent( { type: event.type } );
+
+			}
+
+		}
 
 	}
 
@@ -22861,15 +22879,24 @@ function WebXRManager( renderer ) {
 
 	}
 
+	function onRequestReferenceSpace( value ) {
+
+		referenceSpace = value;
+
+		animation.setContext( session );
+		animation.start();
+
+	}
+
 	this.setFramebufferScaleFactor = function ( value ) {
 
 		framebufferScaleFactor = value;
 
 	};
 
-	this.setFrameOfReferenceType = function ( value ) {
+	this.setReferenceSpaceType = function ( value ) {
 
-		frameOfReferenceType = value;
+		referenceSpaceType = value;
 
 	};
 
@@ -22884,27 +22911,17 @@ function WebXRManager( renderer ) {
 			session.addEventListener( 'selectend', onSessionEvent );
 			session.addEventListener( 'end', onSessionEnd );
 
-			session.baseLayer = new XRWebGLLayer( session, gl, { framebufferScaleFactor: framebufferScaleFactor, multiview: this.multiview } );
-			session.requestFrameOfReference( frameOfReferenceType ).then( function ( value ) {
+			session.updateRenderState( { baseLayer: new XRWebGLLayer( session, gl, { framebufferScaleFactor: framebufferScaleFactor, multiview: this.multiview } ) } );
 
-				frameOfReference = value;
-
-				renderer.setFramebuffer( session.baseLayer.framebuffer );
-				renderer.setRenderTarget( renderer.getRenderTarget() );
-
-				animation.setContext( session );
-				animation.start();
-				renderer.animation.stop();
-
-			} );
+			session.requestReferenceSpace( referenceSpaceType ).then( onRequestReferenceSpace );
 
 			//
 
-			inputSources = session.getInputSources();
+			inputSources = session.inputSources;
 
 			session.addEventListener( 'inputsourceschange', function () {
 
-				inputSources = session.getInputSources();
+				inputSources = session.inputSources;
 				console.log( inputSources );
 
 				for ( var i = 0; i < controllers.length; i ++ ) {
@@ -22993,18 +23010,20 @@ function WebXRManager( renderer ) {
 
 	function onAnimationFrame( time, frame ) {
 
-		pose = frame.getDevicePose( frameOfReference );
+		pose = frame.getViewerPose( referenceSpace );
 
 		if ( pose !== null ) {
 
-			var layer = session.baseLayer;
-			var views = frame.views;
+			var layer = session.renderState.baseLayer;
+			var views = pose.views;
+
+			renderer.setFramebuffer( session.renderState.baseLayer.framebuffer );
 
 			for ( var i = 0; i < views.length; i ++ ) {
 
 				var view = views[ i ];
 				var viewport = layer.getViewport( view );
-				var viewMatrix = pose.getViewMatrix( view );
+				var viewMatrix = view.transform.inverse.matrix;
 
 				var camera = cameraVR.cameras[ i ];
 				camera.matrix.fromArray( viewMatrix ).getInverse( camera.matrix );
@@ -23031,22 +23050,11 @@ function WebXRManager( renderer ) {
 
 			if ( inputSource ) {
 
-				var inputPose = frame.getInputPose( inputSource, frameOfReference );
+				var inputPose = frame.getPose( inputSource.targetRaySpace, referenceSpace );
 
 				if ( inputPose !== null ) {
 
-					if ( 'targetRay' in inputPose ) {
-
-						controller.matrix.elements = inputPose.targetRay.transformMatrix;
-
-					} else if ( 'pointerMatrix' in inputPose ) {
-
-						// DEPRECATED
-
-						controller.matrix.elements = inputPose.pointerMatrix;
-
-					}
-
+					controller.matrix.fromArray( inputPose.transform.matrix );
 					controller.matrix.decompose( controller.position, controller.rotation, controller.scale );
 					controller.visible = true;
 
@@ -23081,6 +23089,18 @@ function WebXRManager( renderer ) {
 
 		console.warn( 'THREE.WebXRManager: getStandingMatrix() is no longer needed.' );
 		return new Matrix4();
+
+	};
+
+	this.getDevice = function () {
+
+		console.warn( 'THREE.WebXRManager: getDevice() has been deprecated.' );
+
+	};
+
+	this.setDevice = function () {
+
+		console.warn( 'THREE.WebXRManager: setDevice() has been deprecated.' );
 
 	};
 
@@ -23179,6 +23199,8 @@ function WebGLRenderer( parameters ) {
 
 		_framebuffer = null,
 
+		_currentActiveCubeFace = 0,
+		_currentActiveMipmapLevel = 0,
 		_currentRenderTarget = null,
 		_currentFramebuffer = null,
 		_currentMaterialId = - 1,
@@ -23245,7 +23267,8 @@ function WebGLRenderer( parameters ) {
 			premultipliedAlpha: _premultipliedAlpha,
 			preserveDrawingBuffer: _preserveDrawingBuffer,
 			powerPreference: _powerPreference,
-			failIfMajorPerformanceCaveat: _failIfMajorPerformanceCaveat
+			failIfMajorPerformanceCaveat: _failIfMajorPerformanceCaveat,
+			xrCompatible: true
 		};
 
 		// event listeners must be registered before WebGL context is created, see #12753
@@ -23354,7 +23377,7 @@ function WebGLRenderer( parameters ) {
 
 	// vr
 
-	var vr = ( typeof navigator !== 'undefined' && 'xr' in navigator && 'requestDevice' in navigator.xr ) ? new WebXRManager( _this ) : new WebVRManager( _this );
+	var vr = ( typeof navigator !== 'undefined' && 'xr' in navigator && 'supportsSession' in navigator.xr ) ? new WebXRManager( _this ) : new WebVRManager( _this );
 
 	this.vr = vr;
 
@@ -25584,10 +25607,23 @@ function WebGLRenderer( parameters ) {
 	}
 
 	//
-
 	this.setFramebuffer = function ( value ) {
 
+		if ( _framebuffer !== value ) _gl.bindFramebuffer( 36160, value );
+
 		_framebuffer = value;
+
+	};
+
+	this.getActiveCubeFace = function () {
+
+		return _currentActiveCubeFace;
+
+	};
+
+	this.getActiveMipMapLevel = function () {
+
+		return _currentActiveMipmapLevel;
 
 	};
 
@@ -25600,6 +25636,8 @@ function WebGLRenderer( parameters ) {
 	this.setRenderTarget = function ( renderTarget, activeCubeFace, activeMipMapLevel ) {
 
 		_currentRenderTarget = renderTarget;
+		_currentActiveCubeFace = activeCubeFace;
+		_currentActiveMipmapLevel = activeMipMapLevel;
 
 		if ( renderTarget && properties.get( renderTarget ).__webglFramebuffer === undefined ) {
 
@@ -25775,6 +25813,12 @@ function WebGLRenderer( parameters ) {
 
 	};
 
+	/*
+	if ( typeof __THREE_DEVTOOLS__ !== undefined ) {
+		__THREE_DEVTOOLS__.dispatchEvent( { type: 'renderer', value: this } );
+	}
+	*/
+
 }
 
 /**
@@ -25867,6 +25911,12 @@ function Scene() {
 	this.overrideMaterial = null;
 
 	this.autoUpdate = true; // checked by the renderer
+
+	/*
+	if ( typeof __THREE_DEVTOOLS__ !== undefined ) {
+		__THREE_DEVTOOLS__.dispatchEvent( { type: 'scene', value: this } );
+	}
+	*/
 
 }
 
