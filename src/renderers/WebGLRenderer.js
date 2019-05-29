@@ -1220,7 +1220,7 @@ function WebGLRenderer( parameters ) {
 
 		if ( buildRenderList ) {
 
-			buildRenderList(currentRenderList, currentRenderState, scene, camera, this.sortObjects);
+			buildRenderList( currentRenderList, currentRenderState, scene, camera, this.sortObjects, _frustum, objects );
 
 		} else {
 
