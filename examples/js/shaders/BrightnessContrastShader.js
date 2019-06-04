@@ -1,74 +1,58 @@
 /**
- * Generated from 'examples/jsm/shaders/BrightnessContrastShader.js'
+ * @author tapio / http://tapio.github.com/
+ *
+ * Brightness and contrast adjustment
+ * https://github.com/evanw/glfx.js
+ * brightness: -1 to 1 (-1 is solid black, 0 is no change, and 1 is solid white)
+ * contrast: -1 to 1 (-1 is solid gray, 0 is no change, and 1 is maximum contrast)
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.BrightnessContrastShader = {
 
-	/**
-	 * @author tapio / http://tapio.github.com/
-	 *
-	 * Brightness and contrast adjustment
-	 * https://github.com/evanw/glfx.js
-	 * brightness: -1 to 1 (-1 is solid black, 0 is no change, and 1 is solid white)
-	 * contrast: -1 to 1 (-1 is solid gray, 0 is no change, and 1 is maximum contrast)
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"brightness": { value: 0 },
+		"contrast": { value: 0 }
 
+	},
 
-	var BrightnessContrastShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"brightness": { value: 0 },
-			"contrast": { value: 0 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
 
-		vertexShader: [
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-			"varying vec2 vUv;",
+		"}"
 
-			"void main() {",
+	].join( "\n" ),
 
-				"vUv = uv;",
+	fragmentShader: [
 
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform sampler2D tDiffuse;",
+		"uniform float brightness;",
+		"uniform float contrast;",
 
-			"}"
+		"varying vec2 vUv;",
 
-		].join( "\n" ),
+		"void main() {",
 
-		fragmentShader: [
+			"gl_FragColor = texture2D( tDiffuse, vUv );",
 
-			"uniform sampler2D tDiffuse;",
-			"uniform float brightness;",
-			"uniform float contrast;",
+			"gl_FragColor.rgb += brightness;",
 
-			"varying vec2 vUv;",
+			"if (contrast > 0.0) {",
+				"gl_FragColor.rgb = (gl_FragColor.rgb - 0.5) / (1.0 - contrast) + 0.5;",
+			"} else {",
+				"gl_FragColor.rgb = (gl_FragColor.rgb - 0.5) * (1.0 + contrast) + 0.5;",
+			"}",
 
-			"void main() {",
+		"}"
 
-				"gl_FragColor = texture2D( tDiffuse, vUv );",
+	].join( "\n" )
 
-				"gl_FragColor.rgb += brightness;",
-
-				"if (contrast > 0.0) {",
-					"gl_FragColor.rgb = (gl_FragColor.rgb - 0.5) / (1.0 - contrast) + 0.5;",
-				"} else {",
-					"gl_FragColor.rgb = (gl_FragColor.rgb - 0.5) * (1.0 + contrast) + 0.5;",
-				"}",
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.BrightnessContrastShader = BrightnessContrastShader;
-
-}));
+};

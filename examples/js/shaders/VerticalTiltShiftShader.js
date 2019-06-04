@@ -1,81 +1,65 @@
 /**
- * Generated from 'examples/jsm/shaders/VerticalTiltShiftShader.js'
+ * @author alteredq / http://alteredqualia.com/
+ *
+ * Simple fake tilt-shift effect, modulating two pass Gaussian blur (see above) by vertical position
+ *
+ * - 9 samples per pass
+ * - standard deviation 2.7
+ * - "h" and "v" parameters should be set to "1 / width" and "1 / height"
+ * - "r" parameter control where "focused" horizontal line lies
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.VerticalTiltShiftShader = {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * Simple fake tilt-shift effect, modulating two pass Gaussian blur (see above) by vertical position
-	 *
-	 * - 9 samples per pass
-	 * - standard deviation 2.7
-	 * - "h" and "v" parameters should be set to "1 / width" and "1 / height"
-	 * - "r" parameter control where "focused" horizontal line lies
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"v": { value: 1.0 / 512.0 },
+		"r": { value: 0.35 }
 
+	},
 
-	var VerticalTiltShiftShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"v": { value: 1.0 / 512.0 },
-			"r": { value: 0.35 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-		vertexShader: [
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" ),
 
-			"void main() {",
+	fragmentShader: [
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform sampler2D tDiffuse;",
+		"uniform float v;",
+		"uniform float r;",
 
-			"}"
+		"varying vec2 vUv;",
 
-		].join( "\n" ),
+		"void main() {",
 
-		fragmentShader: [
+			"vec4 sum = vec4( 0.0 );",
 
-			"uniform sampler2D tDiffuse;",
-			"uniform float v;",
-			"uniform float r;",
+			"float vv = v * abs( r - vUv.y );",
 
-			"varying vec2 vUv;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 4.0 * vv ) ) * 0.051;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 3.0 * vv ) ) * 0.0918;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 2.0 * vv ) ) * 0.12245;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 1.0 * vv ) ) * 0.1531;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y ) ) * 0.1633;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 1.0 * vv ) ) * 0.1531;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 2.0 * vv ) ) * 0.12245;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 3.0 * vv ) ) * 0.0918;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 4.0 * vv ) ) * 0.051;",
 
-			"void main() {",
+			"gl_FragColor = sum;",
 
-				"vec4 sum = vec4( 0.0 );",
+		"}"
 
-				"float vv = v * abs( r - vUv.y );",
+	].join( "\n" )
 
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 4.0 * vv ) ) * 0.051;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 3.0 * vv ) ) * 0.0918;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 2.0 * vv ) ) * 0.12245;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y - 1.0 * vv ) ) * 0.1531;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y ) ) * 0.1633;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 1.0 * vv ) ) * 0.1531;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 2.0 * vv ) ) * 0.12245;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 3.0 * vv ) ) * 0.0918;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y + 4.0 * vv ) ) * 0.051;",
-
-				"gl_FragColor = sum;",
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.VerticalTiltShiftShader = VerticalTiltShiftShader;
-
-}));
+};

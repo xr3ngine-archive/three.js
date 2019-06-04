@@ -1,58 +1,44 @@
 /**
- * Generated from 'examples/jsm/postprocessing/ClearPass.js'
+ * @author mrdoob / http://mrdoob.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js')) :
-	typeof define === 'function' && define.amd ? define(['exports', '/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
-}(this, function (exports, Pass_js) { 'use strict';
+THREE.ClearPass = function ( clearColor, clearAlpha ) {
 
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 */
+	THREE.Pass.call( this );
 
-	var ClearPass = function ( clearColor, clearAlpha ) {
+	this.needsSwap = false;
 
-		Pass_js.Pass.call( this );
+	this.clearColor = ( clearColor !== undefined ) ? clearColor : 0x000000;
+	this.clearAlpha = ( clearAlpha !== undefined ) ? clearAlpha : 0;
 
-		this.needsSwap = false;
+};
 
-		this.clearColor = ( clearColor !== undefined ) ? clearColor : 0x000000;
-		this.clearAlpha = ( clearAlpha !== undefined ) ? clearAlpha : 0;
+THREE.ClearPass.prototype = Object.assign( Object.create( THREE.Pass.prototype ), {
 
-	};
+	constructor: THREE.ClearPass,
 
-	ClearPass.prototype = Object.assign( Object.create( Pass_js.Pass.prototype ), {
+	render: function ( renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */ ) {
 
-		constructor: ClearPass,
+		var oldClearColor, oldClearAlpha;
 
-		render: function ( renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */ ) {
+		if ( this.clearColor ) {
 
-			var oldClearColor, oldClearAlpha;
+			oldClearColor = renderer.getClearColor().getHex();
+			oldClearAlpha = renderer.getClearAlpha();
 
-			if ( this.clearColor ) {
-
-				oldClearColor = renderer.getClearColor().getHex();
-				oldClearAlpha = renderer.getClearAlpha();
-
-				renderer.setClearColor( this.clearColor, this.clearAlpha );
-
-			}
-
-			renderer.setRenderTarget( this.renderToScreen ? null : readBuffer );
-			renderer.clear();
-
-			if ( this.clearColor ) {
-
-				renderer.setClearColor( oldClearColor, oldClearAlpha );
-
-			}
+			renderer.setClearColor( this.clearColor, this.clearAlpha );
 
 		}
 
-	} );
+		renderer.setRenderTarget( this.renderToScreen ? null : readBuffer );
+		renderer.clear();
 
-	exports.ClearPass = ClearPass;
+		if ( this.clearColor ) {
 
-}));
+			renderer.setClearColor( oldClearColor, oldClearAlpha );
+
+		}
+
+	}
+
+} );

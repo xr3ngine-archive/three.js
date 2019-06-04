@@ -1,58 +1,42 @@
 /**
- * Generated from 'examples/jsm/modifiers/ExplodeModifier.js'
+ * Make all faces use unique vertices
+ * so that each face can be separated from others
+ *
+ * @author alteredq / http://alteredqualia.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.ExplodeModifier = function () {
 
-	/**
-	 * Make all faces use unique vertices
-	 * so that each face can be separated from others
-	 *
-	 * @author alteredq / http://alteredqualia.com/
-	 */
+};
 
+THREE.ExplodeModifier.prototype.modify = function ( geometry ) {
 
+	var vertices = [];
 
-	var ExplodeModifier = function () {
+	for ( var i = 0, il = geometry.faces.length; i < il; i ++ ) {
 
-	};
+		var n = vertices.length;
 
-	ExplodeModifier.prototype.modify = function ( geometry ) {
+		var face = geometry.faces[ i ];
 
-		var vertices = [];
+		var a = face.a;
+		var b = face.b;
+		var c = face.c;
 
-		for ( var i = 0, il = geometry.faces.length; i < il; i ++ ) {
+		var va = geometry.vertices[ a ];
+		var vb = geometry.vertices[ b ];
+		var vc = geometry.vertices[ c ];
 
-			var n = vertices.length;
+		vertices.push( va.clone() );
+		vertices.push( vb.clone() );
+		vertices.push( vc.clone() );
 
-			var face = geometry.faces[ i ];
+		face.a = n;
+		face.b = n + 1;
+		face.c = n + 2;
 
-			var a = face.a;
-			var b = face.b;
-			var c = face.c;
+	}
 
-			var va = geometry.vertices[ a ];
-			var vb = geometry.vertices[ b ];
-			var vc = geometry.vertices[ c ];
+	geometry.vertices = vertices;
 
-			vertices.push( va.clone() );
-			vertices.push( vb.clone() );
-			vertices.push( vc.clone() );
-
-			face.a = n;
-			face.b = n + 1;
-			face.c = n + 2;
-
-		}
-
-		geometry.vertices = vertices;
-
-	};
-
-	exports.ExplodeModifier = ExplodeModifier;
-
-}));
+};

@@ -1,67 +1,53 @@
 /**
- * Generated from 'examples/jsm/shaders/NormalMapShader.js'
+ * @author alteredq / http://alteredqualia.com/
+ *
+ * Normal map shader
+ * - compute normals from heightmap
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
-}(this, function (exports, THREE) { 'use strict';
+THREE.NormalMapShader = {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * Normal map shader
-	 * - compute normals from heightmap
-	 */
+	uniforms: {
 
-	var NormalMapShader = {
+		"heightMap": { value: null },
+		"resolution": { value: new THREE.Vector2( 512, 512 ) },
+		"scale": { value: new THREE.Vector2( 1, 1 ) },
+		"height": { value: 0.05 }
 
-		uniforms: {
+	},
 
-			"heightMap": { value: null },
-			"resolution": { value: new THREE.Vector2( 512, 512 ) },
-			"scale": { value: new THREE.Vector2( 1, 1 ) },
-			"height": { value: 0.05 }
+	vertexShader: [
 
-		},
+		"varying vec2 vUv;",
 
-		vertexShader: [
+		"void main() {",
 
-			"varying vec2 vUv;",
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-			"void main() {",
+		"}"
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+	].join( "\n" ),
 
-			"}"
+	fragmentShader: [
 
-		].join( "\n" ),
+		"uniform float height;",
+		"uniform vec2 resolution;",
+		"uniform sampler2D heightMap;",
 
-		fragmentShader: [
+		"varying vec2 vUv;",
 
-			"uniform float height;",
-			"uniform vec2 resolution;",
-			"uniform sampler2D heightMap;",
+		"void main() {",
 
-			"varying vec2 vUv;",
+			"float val = texture2D( heightMap, vUv ).x;",
 
-			"void main() {",
+			"float valU = texture2D( heightMap, vUv + vec2( 1.0 / resolution.x, 0.0 ) ).x;",
+			"float valV = texture2D( heightMap, vUv + vec2( 0.0, 1.0 / resolution.y ) ).x;",
 
-				"float val = texture2D( heightMap, vUv ).x;",
+			"gl_FragColor = vec4( ( 0.5 * normalize( vec3( val - valU, val - valV, height  ) ) + 0.5 ), 1.0 );",
 
-				"float valU = texture2D( heightMap, vUv + vec2( 1.0 / resolution.x, 0.0 ) ).x;",
-				"float valV = texture2D( heightMap, vUv + vec2( 0.0, 1.0 / resolution.y ) ).x;",
+		"}"
 
-				"gl_FragColor = vec4( ( 0.5 * normalize( vec3( val - valU, val - valV, height  ) ) + 0.5 ), 1.0 );",
+	].join( "\n" )
 
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.NormalMapShader = NormalMapShader;
-
-}));
+};

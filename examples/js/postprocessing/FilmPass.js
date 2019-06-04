@@ -1,71 +1,57 @@
 /**
- * Generated from 'examples/jsm/postprocessing/FilmPass.js'
+ * @author alteredq / http://alteredqualia.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three'), require('/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js'), require('/Users/rlong/workspace/three.js/examples/jsm/shaders/FilmShader.js')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three', '/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js', '/Users/rlong/workspace/three.js/examples/jsm/shaders/FilmShader.js'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE, global.THREE, global.THREE));
-}(this, function (exports, THREE, Pass_js, FilmShader_js) { 'use strict';
+THREE.FilmPass = function ( noiseIntensity, scanlinesIntensity, scanlinesCount, grayscale ) {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 */
+	THREE.Pass.call( this );
 
-	var FilmPass = function ( noiseIntensity, scanlinesIntensity, scanlinesCount, grayscale ) {
+	if ( THREE.FilmShader === undefined )
+		console.error( "THREE.FilmPass relies on THREE.FilmShader" );
 
-		Pass_js.Pass.call( this );
+	var shader = THREE.FilmShader;
 
-		if ( FilmShader_js.FilmShader === undefined )
-			console.error( "FilmPass relies on FilmShader" );
+	this.uniforms = THREE.UniformsUtils.clone( shader.uniforms );
 
-		var shader = FilmShader_js.FilmShader;
+	this.material = new THREE.ShaderMaterial( {
 
-		this.uniforms = THREE.UniformsUtils.clone( shader.uniforms );
-
-		this.material = new THREE.ShaderMaterial( {
-
-			uniforms: this.uniforms,
-			vertexShader: shader.vertexShader,
-			fragmentShader: shader.fragmentShader
-
-		} );
-
-		if ( grayscale !== undefined )	this.uniforms.grayscale.value = grayscale;
-		if ( noiseIntensity !== undefined ) this.uniforms.nIntensity.value = noiseIntensity;
-		if ( scanlinesIntensity !== undefined ) this.uniforms.sIntensity.value = scanlinesIntensity;
-		if ( scanlinesCount !== undefined ) this.uniforms.sCount.value = scanlinesCount;
-
-		this.fsQuad = new Pass_js.Pass.FullScreenQuad( this.material );
-
-	};
-
-	FilmPass.prototype = Object.assign( Object.create( Pass_js.Pass.prototype ), {
-
-		constructor: FilmPass,
-
-		render: function ( renderer, writeBuffer, readBuffer, deltaTime /*, maskActive */ ) {
-
-			this.uniforms[ "tDiffuse" ].value = readBuffer.texture;
-			this.uniforms[ "time" ].value += deltaTime;
-
-			if ( this.renderToScreen ) {
-
-				renderer.setRenderTarget( null );
-				this.fsQuad.render( renderer );
-
-			} else {
-
-				renderer.setRenderTarget( writeBuffer );
-				if ( this.clear ) renderer.clear();
-				this.fsQuad.render( renderer );
-
-			}
-
-		}
+		uniforms: this.uniforms,
+		vertexShader: shader.vertexShader,
+		fragmentShader: shader.fragmentShader
 
 	} );
 
-	exports.FilmPass = FilmPass;
+	if ( grayscale !== undefined )	this.uniforms.grayscale.value = grayscale;
+	if ( noiseIntensity !== undefined ) this.uniforms.nIntensity.value = noiseIntensity;
+	if ( scanlinesIntensity !== undefined ) this.uniforms.sIntensity.value = scanlinesIntensity;
+	if ( scanlinesCount !== undefined ) this.uniforms.sCount.value = scanlinesCount;
 
-}));
+	this.fsQuad = new THREE.Pass.FullScreenQuad( this.material );
+
+};
+
+THREE.FilmPass.prototype = Object.assign( Object.create( THREE.Pass.prototype ), {
+
+	constructor: THREE.FilmPass,
+
+	render: function ( renderer, writeBuffer, readBuffer, deltaTime /*, maskActive */ ) {
+
+		this.uniforms[ "tDiffuse" ].value = readBuffer.texture;
+		this.uniforms[ "time" ].value += deltaTime;
+
+		if ( this.renderToScreen ) {
+
+			renderer.setRenderTarget( null );
+			this.fsQuad.render( renderer );
+
+		} else {
+
+			renderer.setRenderTarget( writeBuffer );
+			if ( this.clear ) renderer.clear();
+			this.fsQuad.render( renderer );
+
+		}
+
+	}
+
+} );

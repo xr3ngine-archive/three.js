@@ -1,71 +1,55 @@
 /**
- * Generated from 'examples/jsm/exporters/TypedGeometryExporter.js'
+ * @author mrdoob / http://mrdoob.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.TypedGeometryExporter = function () {};
 
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 */
+THREE.TypedGeometryExporter.prototype = {
 
+	constructor: THREE.TypedGeometryExporter,
 
+	parse: function ( geometry ) {
 
-	var TypedGeometryExporter = function () {};
+		var output = {
+			metadata: {
+				version: 4.0,
+				type: 'TypedGeometry',
+				generator: 'TypedGeometryExporter'
+			}
+		};
 
-	TypedGeometryExporter.prototype = {
+		var attributes = [ 'vertices', 'normals', 'uvs' ];
 
-		constructor: TypedGeometryExporter,
+		for ( var key in attributes ) {
 
-		parse: function ( geometry ) {
+			var attribute = attributes[ key ];
 
-			var output = {
-				metadata: {
-					version: 4.0,
-					type: 'TypedGeometry',
-					generator: 'TypedGeometryExporter'
-				}
-			};
+			var typedArray = geometry[ attribute ];
+			var array = [];
 
-			var attributes = [ 'vertices', 'normals', 'uvs' ];
+			for ( var i = 0, l = typedArray.length; i < l; i ++ ) {
 
-			for ( var key in attributes ) {
-
-				var attribute = attributes[ key ];
-
-				var typedArray = geometry[ attribute ];
-				var array = [];
-
-				for ( var i = 0, l = typedArray.length; i < l; i ++ ) {
-
-					array[ i ] = typedArray[ i ];
-
-				}
-
-				output[ attribute ] = array;
+				array[ i ] = typedArray[ i ];
 
 			}
 
-			var boundingSphere = geometry.boundingSphere;
-
-			if ( boundingSphere !== null ) {
-
-				output.boundingSphere = {
-					center: boundingSphere.center.toArray(),
-					radius: boundingSphere.radius
-				};
-
-			}
-
-			return output;
+			output[ attribute ] = array;
 
 		}
 
-	};
+		var boundingSphere = geometry.boundingSphere;
 
-	exports.TypedGeometryExporter = TypedGeometryExporter;
+		if ( boundingSphere !== null ) {
 
-}));
+			output.boundingSphere = {
+				center: boundingSphere.center.toArray(),
+				radius: boundingSphere.radius
+			};
+
+		}
+
+		return output;
+
+	}
+
+};

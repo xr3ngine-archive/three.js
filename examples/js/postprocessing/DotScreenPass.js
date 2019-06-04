@@ -1,70 +1,56 @@
 /**
- * Generated from 'examples/jsm/postprocessing/DotScreenPass.js'
+ * @author alteredq / http://alteredqualia.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three'), require('/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js'), require('/Users/rlong/workspace/three.js/examples/jsm/shaders/DotScreenShader.js')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three', '/Users/rlong/workspace/three.js/examples/jsm/postprocessing/Pass.js', '/Users/rlong/workspace/three.js/examples/jsm/shaders/DotScreenShader.js'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE, global.THREE, global.THREE));
-}(this, function (exports, THREE, Pass_js, DotScreenShader_js) { 'use strict';
+THREE.DotScreenPass = function ( center, angle, scale ) {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 */
+	THREE.Pass.call( this );
 
-	var DotScreenPass = function ( center, angle, scale ) {
+	if ( THREE.DotScreenShader === undefined )
+		console.error( "THREE.DotScreenPass relies on THREE.DotScreenShader" );
 
-		Pass_js.Pass.call( this );
+	var shader = THREE.DotScreenShader;
 
-		if ( DotScreenShader_js.DotScreenShader === undefined )
-			console.error( "DotScreenPass relies on DotScreenShader" );
+	this.uniforms = THREE.UniformsUtils.clone( shader.uniforms );
 
-		var shader = DotScreenShader_js.DotScreenShader;
+	if ( center !== undefined ) this.uniforms[ "center" ].value.copy( center );
+	if ( angle !== undefined ) this.uniforms[ "angle" ].value = angle;
+	if ( scale !== undefined ) this.uniforms[ "scale" ].value = scale;
 
-		this.uniforms = THREE.UniformsUtils.clone( shader.uniforms );
+	this.material = new THREE.ShaderMaterial( {
 
-		if ( center !== undefined ) this.uniforms[ "center" ].value.copy( center );
-		if ( angle !== undefined ) this.uniforms[ "angle" ].value = angle;
-		if ( scale !== undefined ) this.uniforms[ "scale" ].value = scale;
-
-		this.material = new THREE.ShaderMaterial( {
-
-			uniforms: this.uniforms,
-			vertexShader: shader.vertexShader,
-			fragmentShader: shader.fragmentShader
-
-		} );
-
-		this.fsQuad = new Pass_js.Pass.FullScreenQuad( this.material );
-
-	};
-
-	DotScreenPass.prototype = Object.assign( Object.create( Pass_js.Pass.prototype ), {
-
-		constructor: DotScreenPass,
-
-		render: function ( renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */ ) {
-
-			this.uniforms[ "tDiffuse" ].value = readBuffer.texture;
-			this.uniforms[ "tSize" ].value.set( readBuffer.width, readBuffer.height );
-
-			if ( this.renderToScreen ) {
-
-				renderer.setRenderTarget( null );
-				this.fsQuad.render( renderer );
-
-			} else {
-
-				renderer.setRenderTarget( writeBuffer );
-				if ( this.clear ) renderer.clear();
-				this.fsQuad.render( renderer );
-
-			}
-
-		}
+		uniforms: this.uniforms,
+		vertexShader: shader.vertexShader,
+		fragmentShader: shader.fragmentShader
 
 	} );
 
-	exports.DotScreenPass = DotScreenPass;
+	this.fsQuad = new THREE.Pass.FullScreenQuad( this.material );
 
-}));
+};
+
+THREE.DotScreenPass.prototype = Object.assign( Object.create( THREE.Pass.prototype ), {
+
+	constructor: THREE.DotScreenPass,
+
+	render: function ( renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */ ) {
+
+		this.uniforms[ "tDiffuse" ].value = readBuffer.texture;
+		this.uniforms[ "tSize" ].value.set( readBuffer.width, readBuffer.height );
+
+		if ( this.renderToScreen ) {
+
+			renderer.setRenderTarget( null );
+			this.fsQuad.render( renderer );
+
+		} else {
+
+			renderer.setRenderTarget( writeBuffer );
+			if ( this.clear ) renderer.clear();
+			this.fsQuad.render( renderer );
+
+		}
+
+	}
+
+} );

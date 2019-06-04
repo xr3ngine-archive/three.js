@@ -1,74 +1,58 @@
 /**
- * Generated from 'examples/jsm/shaders/MirrorShader.js'
+ * @author felixturner / http://airtight.cc/
+ *
+ * Mirror Shader
+ * Copies half the input to the other half
+ *
+ * side: side of input to mirror (0 = left, 1 = right, 2 = top, 3 = bottom)
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.MirrorShader = {
 
-	/**
-	 * @author felixturner / http://airtight.cc/
-	 *
-	 * Mirror Shader
-	 * Copies half the input to the other half
-	 *
-	 * side: side of input to mirror (0 = left, 1 = right, 2 = top, 3 = bottom)
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"side": { value: 1 }
 
+	},
 
-	var MirrorShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"side": { value: 1 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-		vertexShader: [
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" ),
 
-			"void main() {",
+	fragmentShader: [
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform sampler2D tDiffuse;",
+		"uniform int side;",
 
-			"}"
+		"varying vec2 vUv;",
 
-		].join( "\n" ),
+		"void main() {",
 
-		fragmentShader: [
+			"vec2 p = vUv;",
+			"if (side == 0){",
+				"if (p.x > 0.5) p.x = 1.0 - p.x;",
+			"}else if (side == 1){",
+				"if (p.x < 0.5) p.x = 1.0 - p.x;",
+			"}else if (side == 2){",
+				"if (p.y < 0.5) p.y = 1.0 - p.y;",
+			"}else if (side == 3){",
+				"if (p.y > 0.5) p.y = 1.0 - p.y;",
+			"} ",
+			"vec4 color = texture2D(tDiffuse, p);",
+			"gl_FragColor = color;",
 
-			"uniform sampler2D tDiffuse;",
-			"uniform int side;",
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" )
 
-			"void main() {",
-
-				"vec2 p = vUv;",
-				"if (side == 0){",
-					"if (p.x > 0.5) p.x = 1.0 - p.x;",
-				"}else if (side == 1){",
-					"if (p.x < 0.5) p.x = 1.0 - p.x;",
-				"}else if (side == 2){",
-					"if (p.y < 0.5) p.y = 1.0 - p.y;",
-				"}else if (side == 3){",
-					"if (p.y > 0.5) p.y = 1.0 - p.y;",
-				"} ",
-				"vec4 color = texture2D(tDiffuse, p);",
-				"gl_FragColor = color;",
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.MirrorShader = MirrorShader;
-
-}));
+};

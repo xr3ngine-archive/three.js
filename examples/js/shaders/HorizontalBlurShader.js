@@ -1,78 +1,62 @@
 /**
- * Generated from 'examples/jsm/shaders/HorizontalBlurShader.js'
+ * @author zz85 / http://www.lab4games.net/zz85/blog
+ *
+ * Two pass Gaussian blur filter (horizontal and vertical blur shaders)
+ * - described in http://www.gamerendering.com/2008/10/11/gaussian-blur-filter-shader/
+ *   and used in http://www.cake23.de/traveling-wavefronts-lit-up.html
+ *
+ * - 9 samples per pass
+ * - standard deviation 2.7
+ * - "h" and "v" parameters should be set to "1 / width" and "1 / height"
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.HorizontalBlurShader = {
 
-	/**
-	 * @author zz85 / http://www.lab4games.net/zz85/blog
-	 *
-	 * Two pass Gaussian blur filter (horizontal and vertical blur shaders)
-	 * - described in http://www.gamerendering.com/2008/10/11/gaussian-blur-filter-shader/
-	 *   and used in http://www.cake23.de/traveling-wavefronts-lit-up.html
-	 *
-	 * - 9 samples per pass
-	 * - standard deviation 2.7
-	 * - "h" and "v" parameters should be set to "1 / width" and "1 / height"
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"h": { value: 1.0 / 512.0 }
 
+	},
 
-	var HorizontalBlurShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"h": { value: 1.0 / 512.0 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-		vertexShader: [
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" ),
 
-			"void main() {",
+	fragmentShader: [
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform sampler2D tDiffuse;",
+		"uniform float h;",
 
-			"}"
+		"varying vec2 vUv;",
 
-		].join( "\n" ),
+		"void main() {",
 
-		fragmentShader: [
+			"vec4 sum = vec4( 0.0 );",
 
-			"uniform sampler2D tDiffuse;",
-			"uniform float h;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x - 4.0 * h, vUv.y ) ) * 0.051;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x - 3.0 * h, vUv.y ) ) * 0.0918;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x - 2.0 * h, vUv.y ) ) * 0.12245;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x - 1.0 * h, vUv.y ) ) * 0.1531;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y ) ) * 0.1633;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x + 1.0 * h, vUv.y ) ) * 0.1531;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x + 2.0 * h, vUv.y ) ) * 0.12245;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x + 3.0 * h, vUv.y ) ) * 0.0918;",
+			"sum += texture2D( tDiffuse, vec2( vUv.x + 4.0 * h, vUv.y ) ) * 0.051;",
 
-			"varying vec2 vUv;",
+			"gl_FragColor = sum;",
 
-			"void main() {",
+		"}"
 
-				"vec4 sum = vec4( 0.0 );",
+	].join( "\n" )
 
-				"sum += texture2D( tDiffuse, vec2( vUv.x - 4.0 * h, vUv.y ) ) * 0.051;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x - 3.0 * h, vUv.y ) ) * 0.0918;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x - 2.0 * h, vUv.y ) ) * 0.12245;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x - 1.0 * h, vUv.y ) ) * 0.1531;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x, vUv.y ) ) * 0.1633;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x + 1.0 * h, vUv.y ) ) * 0.1531;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x + 2.0 * h, vUv.y ) ) * 0.12245;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x + 3.0 * h, vUv.y ) ) * 0.0918;",
-				"sum += texture2D( tDiffuse, vec2( vUv.x + 4.0 * h, vUv.y ) ) * 0.051;",
-
-				"gl_FragColor = sum;",
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.HorizontalBlurShader = HorizontalBlurShader;
-
-}));
+};

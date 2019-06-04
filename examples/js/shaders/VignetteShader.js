@@ -1,79 +1,63 @@
 /**
- * Generated from 'examples/jsm/shaders/VignetteShader.js'
+ * @author alteredq / http://alteredqualia.com/
+ *
+ * Vignette shader
+ * based on PaintEffect postprocess from ro.me
+ * http://code.google.com/p/3-dreams-of-black/source/browse/deploy/js/effects/PaintEffect.js
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.VignetteShader = {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * Vignette shader
-	 * based on PaintEffect postprocess from ro.me
-	 * http://code.google.com/p/3-dreams-of-black/source/browse/deploy/js/effects/PaintEffect.js
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"offset": { value: 1.0 },
+		"darkness": { value: 1.0 }
 
+	},
 
-	var VignetteShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"offset": { value: 1.0 },
-			"darkness": { value: 1.0 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-		vertexShader: [
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" ),
 
-			"void main() {",
+	fragmentShader: [
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform float offset;",
+		"uniform float darkness;",
 
-			"}"
+		"uniform sampler2D tDiffuse;",
 
-		].join( "\n" ),
+		"varying vec2 vUv;",
 
-		fragmentShader: [
+		"void main() {",
 
-			"uniform float offset;",
-			"uniform float darkness;",
+			// Eskil's vignette
 
-			"uniform sampler2D tDiffuse;",
+			"vec4 texel = texture2D( tDiffuse, vUv );",
+			"vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );",
+			"gl_FragColor = vec4( mix( texel.rgb, vec3( 1.0 - darkness ), dot( uv, uv ) ), texel.a );",
 
-			"varying vec2 vUv;",
+			/*
+			// alternative version from glfx.js
+			// this one makes more "dusty" look (as opposed to "burned")
 
-			"void main() {",
+			"vec4 color = texture2D( tDiffuse, vUv );",
+			"float dist = distance( vUv, vec2( 0.5 ) );",
+			"color.rgb *= smoothstep( 0.8, offset * 0.799, dist *( darkness + offset ) );",
+			"gl_FragColor = color;",
+			*/
 
-				// Eskil's vignette
+		"}"
 
-				"vec4 texel = texture2D( tDiffuse, vUv );",
-				"vec2 uv = ( vUv - vec2( 0.5 ) ) * vec2( offset );",
-				"gl_FragColor = vec4( mix( texel.rgb, vec3( 1.0 - darkness ), dot( uv, uv ) ), texel.a );",
+	].join( "\n" )
 
-				/*
-				// alternative version from glfx.js
-				// this one makes more "dusty" look (as opposed to "burned")
-
-				"vec4 color = texture2D( tDiffuse, vUv );",
-				"float dist = distance( vUv, vec2( 0.5 ) );",
-				"color.rgb *= smoothstep( 0.8, offset * 0.799, dist *( darkness + offset ) );",
-				"gl_FragColor = color;",
-				*/
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.VignetteShader = VignetteShader;
-
-}));
+};

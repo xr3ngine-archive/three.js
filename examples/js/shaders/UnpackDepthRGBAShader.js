@@ -1,65 +1,49 @@
 /**
- * Generated from 'examples/jsm/shaders/UnpackDepthRGBAShader.js'
+ * @author alteredq / http://alteredqualia.com/
+ *
+ * Unpack RGBA depth shader
+ * - show RGBA encoded depth as monochrome color
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.UnpackDepthRGBAShader = {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * Unpack RGBA depth shader
-	 * - show RGBA encoded depth as monochrome color
-	 */
+	uniforms: {
 
+		"tDiffuse": { value: null },
+		"opacity": { value: 1.0 }
 
+	},
 
-	var UnpackDepthRGBAShader = {
+	vertexShader: [
 
-		uniforms: {
+		"varying vec2 vUv;",
 
-			"tDiffuse": { value: null },
-			"opacity": { value: 1.0 }
+		"void main() {",
 
-		},
+			"vUv = uv;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-		vertexShader: [
+		"}"
 
-			"varying vec2 vUv;",
+	].join( "\n" ),
 
-			"void main() {",
+	fragmentShader: [
 
-				"vUv = uv;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		"uniform float opacity;",
 
-			"}"
+		"uniform sampler2D tDiffuse;",
 
-		].join( "\n" ),
+		"varying vec2 vUv;",
 
-		fragmentShader: [
+		"#include <packing>",
 
-			"uniform float opacity;",
+		"void main() {",
 
-			"uniform sampler2D tDiffuse;",
+			"float depth = 1.0 - unpackRGBAToDepth( texture2D( tDiffuse, vUv ) );",
+			"gl_FragColor = vec4( vec3( depth ), opacity );",
 
-			"varying vec2 vUv;",
+		"}"
 
-			"#include <packing>",
+	].join( "\n" )
 
-			"void main() {",
-
-				"float depth = 1.0 - unpackRGBAToDepth( texture2D( tDiffuse, vUv ) );",
-				"gl_FragColor = vec4( vec3( depth ), opacity );",
-
-			"}"
-
-		].join( "\n" )
-
-	};
-
-	exports.UnpackDepthRGBAShader = UnpackDepthRGBAShader;
-
-}));
+};

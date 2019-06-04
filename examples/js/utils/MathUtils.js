@@ -1,79 +1,63 @@
 /**
- * Generated from 'examples/jsm/utils/MathUtils.js'
+ * @author WestLangley / http://github.com/WestLangley
+ * @author thezwap / http://github.com/thezwap
  */
 
-(function (global, factory) {
-    typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-    typeof define === 'function' && define.amd ? define(['exports'], factory) :
-    (global = global || self, factory(global.THREE = global.THREE || {}));
-}(this, function (exports) { 'use strict';
+THREE.MathUtils = {
 
-    /**
-     * @author WestLangley / http://github.com/WestLangley
-     * @author thezwap / http://github.com/thezwap
-     */
+    setQuaternionFromProperEuler: function ( q, a, b, c, order ) {
 
+        // Intrinsic Proper Euler Angles - see https://en.wikipedia.org/wiki/Euler_angles
 
+        // rotations are applied to the axes in the order specified by 'order'
+        // rotation by angle 'a' is applied first, then by angle 'b', then by angle 'c'
+        // angles are in radians
 
-    var MathUtils = {
+        var cos = Math.cos;
+        var sin = Math.sin;
 
-        setQuaternionFromProperEuler: function ( q, a, b, c, order ) {
+        var c2 = cos( b / 2 );
+        var s2 = sin( b / 2 );
 
-            // Intrinsic Proper Euler Angles - see https://en.wikipedia.org/wiki/Euler_angles
+        var c13 = cos( ( a + c ) / 2 );
+        var s13 = sin( ( a + c ) / 2 );
 
-            // rotations are applied to the axes in the order specified by 'order'
-            // rotation by angle 'a' is applied first, then by angle 'b', then by angle 'c'
-            // angles are in radians
+        var c1_3 = cos( ( a - c ) / 2 );
+        var s1_3 = sin( ( a - c ) / 2 );
 
-            var cos = Math.cos;
-            var sin = Math.sin;
+        var c3_1 = cos( ( c - a ) / 2 );
+        var s3_1 = sin( ( c - a ) / 2 );
 
-            var c2 = cos( b / 2 );
-            var s2 = sin( b / 2 );
+        if ( order === 'XYX' ) {
 
-            var c13 = cos( ( a + c ) / 2 );
-            var s13 = sin( ( a + c ) / 2 );
+            q.set( c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13 );
 
-            var c1_3 = cos( ( a - c ) / 2 );
-            var s1_3 = sin( ( a - c ) / 2 );
+        } else if ( order === 'YZY' ) {
 
-            var c3_1 = cos( ( c - a ) / 2 );
-            var s3_1 = sin( ( c - a ) / 2 );
+            q.set( s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13 );
 
-            if ( order === 'XYX' ) {
+        } else if ( order === 'ZXZ' ) {
 
-                q.set( c2 * s13, s2 * c1_3, s2 * s1_3, c2 * c13 );
+            q.set( s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13 );
 
-            } else if ( order === 'YZY' ) {
+        } else if ( order === 'XZX' ) {
 
-                q.set( s2 * s1_3, c2 * s13, s2 * c1_3, c2 * c13 );
+            q.set( c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13 );
 
-            } else if ( order === 'ZXZ' ) {
+        } else if ( order === 'YXY' ) {
 
-                q.set( s2 * c1_3, s2 * s1_3, c2 * s13, c2 * c13 );
+            q.set( s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13 );
 
-            } else if ( order === 'XZX' ) {
+        } else if ( order === 'ZYZ' ) {
 
-                q.set( c2 * s13, s2 * s3_1, s2 * c3_1, c2 * c13 );
+            q.set( s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13 );
 
-            } else if ( order === 'YXY' ) {
+        } else {
 
-                q.set( s2 * c3_1, c2 * s13, s2 * s3_1, c2 * c13 );
-
-            } else if ( order === 'ZYZ' ) {
-
-                q.set( s2 * s3_1, s2 * c3_1, c2 * s13, c2 * c13 );
-
-            } else {
-
-                console.warn( 'THREE.MathUtils: .setQuaternionFromProperEuler() encountered an unknown order.' );
-
-            }
+            console.warn( 'THREE.MathUtils: .setQuaternionFromProperEuler() encountered an unknown order.' );
 
         }
 
-    };
+    }
 
-    exports.MathUtils = MathUtils;
-
-}));
+};

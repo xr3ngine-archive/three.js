@@ -1,126 +1,112 @@
 /**
- * Generated from 'examples/jsm/loaders/KMZLoader.js'
+ * @author mrdoob / http://mrdoob.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three'), require('/Users/rlong/workspace/three.js/examples/jsm/loaders/ColladaLoader.js')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three', '/Users/rlong/workspace/three.js/examples/jsm/loaders/ColladaLoader.js'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE, global.THREE));
-}(this, function (exports, THREE, ColladaLoader_js) { 'use strict';
+THREE.KMZLoader = function ( manager ) {
 
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 */
+	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
 
-	var KMZLoader = function ( manager ) {
+};
 
-		this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+THREE.KMZLoader.prototype = {
 
-	};
+	constructor: THREE.KMZLoader,
 
-	KMZLoader.prototype = {
+	load: function ( url, onLoad, onProgress, onError ) {
 
-		constructor: KMZLoader,
+		var scope = this;
 
-		load: function ( url, onLoad, onProgress, onError ) {
+		var loader = new THREE.FileLoader( scope.manager );
+		loader.setPath( scope.path );
+		loader.setResponseType( 'arraybuffer' );
+		loader.load( url, function ( text ) {
 
-			var scope = this;
+			onLoad( scope.parse( text ) );
 
-			var loader = new THREE.FileLoader( scope.manager );
-			loader.setPath( scope.path );
-			loader.setResponseType( 'arraybuffer' );
-			loader.load( url, function ( text ) {
+		}, onProgress, onError );
 
-				onLoad( scope.parse( text ) );
+	},
 
-			}, onProgress, onError );
+	setPath: function ( value ) {
 
-		},
+		this.path = value;
+		return this;
 
-		setPath: function ( value ) {
+	},
 
-			this.path = value;
-			return this;
+	parse: function ( data ) {
 
-		},
+		function findFile( url ) {
 
-		parse: function ( data ) {
+			for ( var path in zip.files ) {
 
-			function findFile( url ) {
+				if ( path.substr( - url.length ) === url ) {
 
-				for ( var path in zip.files ) {
-
-					if ( path.substr( - url.length ) === url ) {
-
-						return zip.files[ path ];
-
-					}
+					return zip.files[ path ];
 
 				}
 
 			}
-
-			var manager = new THREE.LoadingManager();
-			manager.setURLModifier( function ( url ) {
-
-				var image = findFile( url );
-
-				if ( image ) {
-
-					console.log( 'Loading', url );
-
-					var blob = new Blob( [ image.asArrayBuffer() ], { type: 'application/octet-stream' } );
-					return URL.createObjectURL( blob );
-
-				}
-
-				return url;
-
-			} );
-
-			//
-
-			var zip = new JSZip( data ); // eslint-disable-line no-undef
-
-			if ( zip.files[ 'doc.kml' ] ) {
-
-				var xml = new DOMParser().parseFromString( zip.files[ 'doc.kml' ].asText(), 'application/xml' );
-
-				var model = xml.querySelector( 'Placemark Model Link href' );
-
-				if ( model ) {
-
-					var loader = new ColladaLoader_js.ColladaLoader( manager );
-					return loader.parse( zip.files[ model.textContent ].asText() );
-
-				}
-
-			} else {
-
-				console.warn( 'KMZLoader: Missing doc.kml file.' );
-
-				for ( var path in zip.files ) {
-
-					var extension = path.split( '.' ).pop().toLowerCase();
-
-					if ( extension === 'dae' ) {
-
-						var loader = new ColladaLoader_js.ColladaLoader( manager );
-						return loader.parse( zip.files[ path ].asText() );
-
-					}
-
-				}
-
-			}
-
-			console.error( 'KMZLoader: Couldn\'t find .dae file.' );
-			return { scene: new THREE.Group() };
 
 		}
 
-	};
+		var manager = new THREE.LoadingManager();
+		manager.setURLModifier( function ( url ) {
 
-	exports.KMZLoader = KMZLoader;
+			var image = findFile( url );
 
-}));
+			if ( image ) {
+
+				console.log( 'Loading', url );
+
+				var blob = new Blob( [ image.asArrayBuffer() ], { type: 'application/octet-stream' } );
+				return URL.createObjectURL( blob );
+
+			}
+
+			return url;
+
+		} );
+
+		//
+
+		var zip = new JSZip( data ); // eslint-disable-line no-undef
+
+		if ( zip.files[ 'doc.kml' ] ) {
+
+			var xml = new DOMParser().parseFromString( zip.files[ 'doc.kml' ].asText(), 'application/xml' );
+
+			var model = xml.querySelector( 'Placemark Model Link href' );
+
+			if ( model ) {
+
+				var loader = new THREE.ColladaLoader( manager );
+				return loader.parse( zip.files[ model.textContent ].asText() );
+
+			}
+
+		} else {
+
+			console.warn( 'KMZLoader: Missing doc.kml file.' );
+
+			for ( var path in zip.files ) {
+
+				var extension = path.split( '.' ).pop().toLowerCase();
+
+				if ( extension === 'dae' ) {
+
+					var loader = new THREE.ColladaLoader( manager );
+					return loader.parse( zip.files[ path ].asText() );
+
+				}
+
+			}
+
+		}
+
+		console.error( 'KMZLoader: Couldn\'t find .dae file.' );
+		return { scene: new THREE.Group() };
+
+	}
+
+};

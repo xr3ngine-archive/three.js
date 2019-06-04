@@ -1,117 +1,103 @@
 /**
- * Generated from 'examples/jsm/effects/ParallaxBarrierEffect.js'
+ * @author mrdoob / http://mrdoob.com/
+ * @author marklundin / http://mark-lundin.com/
+ * @author alteredq / http://alteredqualia.com/
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
-}(this, function (exports, THREE) { 'use strict';
+THREE.ParallaxBarrierEffect = function ( renderer ) {
 
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 * @author marklundin / http://mark-lundin.com/
-	 * @author alteredq / http://alteredqualia.com/
-	 */
+	var _camera = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
 
-	var ParallaxBarrierEffect = function ( renderer ) {
+	var _scene = new THREE.Scene();
 
-		var _camera = new THREE.OrthographicCamera( - 1, 1, 1, - 1, 0, 1 );
+	var _stereo = new THREE.StereoCamera();
 
-		var _scene = new THREE.Scene();
+	var _params = { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat };
 
-		var _stereo = new THREE.StereoCamera();
+	var _renderTargetL = new THREE.WebGLRenderTarget( 512, 512, _params );
+	var _renderTargetR = new THREE.WebGLRenderTarget( 512, 512, _params );
 
-		var _params = { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat };
+	var _material = new THREE.ShaderMaterial( {
 
-		var _renderTargetL = new THREE.WebGLRenderTarget( 512, 512, _params );
-		var _renderTargetR = new THREE.WebGLRenderTarget( 512, 512, _params );
+		uniforms: {
 
-		var _material = new THREE.ShaderMaterial( {
+			"mapLeft": { value: _renderTargetL.texture },
+			"mapRight": { value: _renderTargetR.texture }
 
-			uniforms: {
+		},
 
-				"mapLeft": { value: _renderTargetL.texture },
-				"mapRight": { value: _renderTargetR.texture }
+		vertexShader: [
 
-			},
+			"varying vec2 vUv;",
 
-			vertexShader: [
+			"void main() {",
 
-				"varying vec2 vUv;",
+			"	vUv = vec2( uv.x, uv.y );",
+			"	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-				"void main() {",
+			"}"
 
-				"	vUv = vec2( uv.x, uv.y );",
-				"	gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+		].join( "\n" ),
 
-				"}"
+		fragmentShader: [
 
-			].join( "\n" ),
+			"uniform sampler2D mapLeft;",
+			"uniform sampler2D mapRight;",
+			"varying vec2 vUv;",
 
-			fragmentShader: [
+			"void main() {",
 
-				"uniform sampler2D mapLeft;",
-				"uniform sampler2D mapRight;",
-				"varying vec2 vUv;",
+			"	vec2 uv = vUv;",
 
-				"void main() {",
+			"	if ( ( mod( gl_FragCoord.y, 2.0 ) ) > 1.00 ) {",
 
-				"	vec2 uv = vUv;",
+			"		gl_FragColor = texture2D( mapLeft, uv );",
 
-				"	if ( ( mod( gl_FragCoord.y, 2.0 ) ) > 1.00 ) {",
+			"	} else {",
 
-				"		gl_FragColor = texture2D( mapLeft, uv );",
+			"		gl_FragColor = texture2D( mapRight, uv );",
 
-				"	} else {",
+			"	}",
 
-				"		gl_FragColor = texture2D( mapRight, uv );",
+			"}"
 
-				"	}",
+		].join( "\n" )
 
-				"}"
+	} );
 
-			].join( "\n" )
+	var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), _material );
+	_scene.add( mesh );
 
-		} );
+	this.setSize = function ( width, height ) {
 
-		var mesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), _material );
-		_scene.add( mesh );
+		renderer.setSize( width, height );
 
-		this.setSize = function ( width, height ) {
+		var pixelRatio = renderer.getPixelRatio();
 
-			renderer.setSize( width, height );
-
-			var pixelRatio = renderer.getPixelRatio();
-
-			_renderTargetL.setSize( width * pixelRatio, height * pixelRatio );
-			_renderTargetR.setSize( width * pixelRatio, height * pixelRatio );
-
-		};
-
-		this.render = function ( scene, camera ) {
-
-			scene.updateMatrixWorld();
-
-			if ( camera.parent === null ) camera.updateMatrixWorld();
-
-			_stereo.update( camera );
-
-			renderer.setRenderTarget( _renderTargetL );
-			renderer.clear();
-			renderer.render( scene, _stereo.cameraL );
-
-			renderer.setRenderTarget( _renderTargetR );
-			renderer.clear();
-			renderer.render( scene, _stereo.cameraR );
-
-			renderer.setRenderTarget( null );
-			renderer.render( _scene, _camera );
-
-		};
+		_renderTargetL.setSize( width * pixelRatio, height * pixelRatio );
+		_renderTargetR.setSize( width * pixelRatio, height * pixelRatio );
 
 	};
 
-	exports.ParallaxBarrierEffect = ParallaxBarrierEffect;
+	this.render = function ( scene, camera ) {
 
-}));
+		scene.updateMatrixWorld();
+
+		if ( camera.parent === null ) camera.updateMatrixWorld();
+
+		_stereo.update( camera );
+
+		renderer.setRenderTarget( _renderTargetL );
+		renderer.clear();
+		renderer.render( scene, _stereo.cameraL );
+
+		renderer.setRenderTarget( _renderTargetR );
+		renderer.clear();
+		renderer.render( scene, _stereo.cameraR );
+
+		renderer.setRenderTarget( null );
+		renderer.render( _scene, _camera );
+
+	};
+
+};

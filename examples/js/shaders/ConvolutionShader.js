@@ -1,115 +1,101 @@
 /**
- * Generated from 'examples/jsm/shaders/ConvolutionShader.js'
+ * @author alteredq / http://alteredqualia.com/
+ *
+ * Convolution shader
+ * ported from o3d sample to WebGL / GLSL
+ * http://o3d.googlecode.com/svn/trunk/samples/convolution.html
  */
 
-(function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
-	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
-	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
-}(this, function (exports, THREE) { 'use strict';
+THREE.ConvolutionShader = {
 
-	/**
-	 * @author alteredq / http://alteredqualia.com/
-	 *
-	 * Convolution shader
-	 * ported from o3d sample to WebGL / GLSL
-	 * http://o3d.googlecode.com/svn/trunk/samples/convolution.html
-	 */
+	defines: {
 
-	var ConvolutionShader = {
+		"KERNEL_SIZE_FLOAT": "25.0",
+		"KERNEL_SIZE_INT": "25"
 
-		defines: {
+	},
 
-			"KERNEL_SIZE_FLOAT": "25.0",
-			"KERNEL_SIZE_INT": "25"
+	uniforms: {
 
-		},
+		"tDiffuse": { value: null },
+		"uImageIncrement": { value: new THREE.Vector2( 0.001953125, 0.0 ) },
+		"cKernel": { value: [] }
 
-		uniforms: {
+	},
 
-			"tDiffuse": { value: null },
-			"uImageIncrement": { value: new THREE.Vector2( 0.001953125, 0.0 ) },
-			"cKernel": { value: [] }
+	vertexShader: [
 
-		},
+		"uniform vec2 uImageIncrement;",
 
-		vertexShader: [
+		"varying vec2 vUv;",
 
-			"uniform vec2 uImageIncrement;",
+		"void main() {",
 
-			"varying vec2 vUv;",
+			"vUv = uv - ( ( KERNEL_SIZE_FLOAT - 1.0 ) / 2.0 ) * uImageIncrement;",
+			"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-			"void main() {",
+		"}"
 
-				"vUv = uv - ( ( KERNEL_SIZE_FLOAT - 1.0 ) / 2.0 ) * uImageIncrement;",
-				"gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
+	].join( "\n" ),
 
-			"}"
+	fragmentShader: [
 
-		].join( "\n" ),
+		"uniform float cKernel[ KERNEL_SIZE_INT ];",
 
-		fragmentShader: [
+		"uniform sampler2D tDiffuse;",
+		"uniform vec2 uImageIncrement;",
 
-			"uniform float cKernel[ KERNEL_SIZE_INT ];",
+		"varying vec2 vUv;",
 
-			"uniform sampler2D tDiffuse;",
-			"uniform vec2 uImageIncrement;",
+		"void main() {",
 
-			"varying vec2 vUv;",
+			"vec2 imageCoord = vUv;",
+			"vec4 sum = vec4( 0.0, 0.0, 0.0, 0.0 );",
 
-			"void main() {",
+			"for( int i = 0; i < KERNEL_SIZE_INT; i ++ ) {",
 
-				"vec2 imageCoord = vUv;",
-				"vec4 sum = vec4( 0.0, 0.0, 0.0, 0.0 );",
+				"sum += texture2D( tDiffuse, imageCoord ) * cKernel[ i ];",
+				"imageCoord += uImageIncrement;",
 
-				"for( int i = 0; i < KERNEL_SIZE_INT; i ++ ) {",
+			"}",
 
-					"sum += texture2D( tDiffuse, imageCoord ) * cKernel[ i ];",
-					"imageCoord += uImageIncrement;",
+			"gl_FragColor = sum;",
 
-				"}",
-
-				"gl_FragColor = sum;",
-
-			"}"
+		"}"
 
 
-		].join( "\n" ),
+	].join( "\n" ),
 
-		buildKernel: function ( sigma ) {
+	buildKernel: function ( sigma ) {
 
-			// We lop off the sqrt(2 * pi) * sigma term, since we're going to normalize anyway.
+		// We lop off the sqrt(2 * pi) * sigma term, since we're going to normalize anyway.
 
-			function gauss( x, sigma ) {
+		function gauss( x, sigma ) {
 
-				return Math.exp( - ( x * x ) / ( 2.0 * sigma * sigma ) );
-
-			}
-
-			var i, values, sum, halfWidth, kMaxKernelSize = 25, kernelSize = 2 * Math.ceil( sigma * 3.0 ) + 1;
-
-			if ( kernelSize > kMaxKernelSize ) kernelSize = kMaxKernelSize;
-			halfWidth = ( kernelSize - 1 ) * 0.5;
-
-			values = new Array( kernelSize );
-			sum = 0.0;
-			for ( i = 0; i < kernelSize; ++ i ) {
-
-				values[ i ] = gauss( i - halfWidth, sigma );
-				sum += values[ i ];
-
-			}
-
-			// normalize the kernel
-
-			for ( i = 0; i < kernelSize; ++ i ) values[ i ] /= sum;
-
-			return values;
+			return Math.exp( - ( x * x ) / ( 2.0 * sigma * sigma ) );
 
 		}
 
-	};
+		var i, values, sum, halfWidth, kMaxKernelSize = 25, kernelSize = 2 * Math.ceil( sigma * 3.0 ) + 1;
 
-	exports.ConvolutionShader = ConvolutionShader;
+		if ( kernelSize > kMaxKernelSize ) kernelSize = kMaxKernelSize;
+		halfWidth = ( kernelSize - 1 ) * 0.5;
 
-}));
+		values = new Array( kernelSize );
+		sum = 0.0;
+		for ( i = 0; i < kernelSize; ++ i ) {
+
+			values[ i ] = gauss( i - halfWidth, sigma );
+			sum += values[ i ];
+
+		}
+
+		// normalize the kernel
+
+		for ( i = 0; i < kernelSize; ++ i ) values[ i ] /= sum;
+
+		return values;
+
+	}
+
+};
