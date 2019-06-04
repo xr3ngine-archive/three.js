@@ -161,9 +161,9 @@ var GLTFLoader = ( function () {
 			loader.setPath( this.path );
 			loader.setResponseType( 'arraybuffer' );
 
-			if ( this.options.crossOrigin === 'use-credentials' ) {
+			if ( scope.crossOrigin === 'use-credentials' ) {
 
-				this.fileLoader.setWithCredentials( true );
+				loader.setWithCredentials( true );
 
 			}
 
