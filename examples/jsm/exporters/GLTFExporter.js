@@ -93,7 +93,7 @@ var DEFAULT_OPTIONS = {
 //------------------------------------------------------------------------------
 // GLTF Exporter
 //------------------------------------------------------------------------------
-GLTFExporter = function () {};
+var GLTFExporter = function () {};
 
 GLTFExporter.prototype = {
 
