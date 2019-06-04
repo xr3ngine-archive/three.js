@@ -1,126 +1,140 @@
 /**
- * @author mrdoob / http://mrdoob.com/
- * @author Mugen87 / https://github.com/Mugen87
+ * Generated from 'examples/jsm/controls/PointerLockControls.js'
  */
 
-THREE.PointerLockControls = function ( camera, domElement ) {
+(function (global, factory) {
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
+	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
+	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
+}(this, function (exports, THREE) { 'use strict';
 
-	this.domElement = domElement || document.body;
-	this.isLocked = false;
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 * @author Mugen87 / https://github.com/Mugen87
+	 */
 
-	//
-	// internals
-	//
+	var PointerLockControls = function ( camera, domElement ) {
 
-	var scope = this;
+		this.domElement = domElement || document.body;
+		this.isLocked = false;
 
-	var changeEvent = { type: 'change' };
-	var lockEvent = { type: 'lock' };
-	var unlockEvent = { type: 'unlock' };
+		//
+		// internals
+		//
 
-	var euler = new THREE.Euler( 0, 0, 0, 'YXZ' );
+		var scope = this;
 
-	var PI_2 = Math.PI / 2;
+		var changeEvent = { type: 'change' };
+		var lockEvent = { type: 'lock' };
+		var unlockEvent = { type: 'unlock' };
 
-	function onMouseMove( event ) {
+		var euler = new THREE.Euler( 0, 0, 0, 'YXZ' );
 
-		if ( scope.isLocked === false ) return;
+		var PI_2 = Math.PI / 2;
 
-		var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
-		var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+		function onMouseMove( event ) {
 
-		euler.setFromQuaternion( camera.quaternion );
+			if ( scope.isLocked === false ) return;
 
-		euler.y -= movementX * 0.002;
-		euler.x -= movementY * 0.002;
+			var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+			var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
 
-		euler.x = Math.max( - PI_2, Math.min( PI_2, euler.x ) );
+			euler.setFromQuaternion( camera.quaternion );
 
-		camera.quaternion.setFromEuler( euler );
+			euler.y -= movementX * 0.002;
+			euler.x -= movementY * 0.002;
 
-		scope.dispatchEvent( changeEvent );
+			euler.x = Math.max( - PI_2, Math.min( PI_2, euler.x ) );
 
-	}
+			camera.quaternion.setFromEuler( euler );
 
-	function onPointerlockChange() {
-
-		if ( document.pointerLockElement === scope.domElement ) {
-
-			scope.dispatchEvent( lockEvent );
-
-			scope.isLocked = true;
-
-		} else {
-
-			scope.dispatchEvent( unlockEvent );
-
-			scope.isLocked = false;
+			scope.dispatchEvent( changeEvent );
 
 		}
 
-	}
+		function onPointerlockChange() {
 
-	function onPointerlockError() {
+			if ( document.pointerLockElement === scope.domElement ) {
 
-		console.error( 'THREE.PointerLockControls: Unable to use Pointer Lock API' );
+				scope.dispatchEvent( lockEvent );
 
-	}
+				scope.isLocked = true;
 
-	this.connect = function () {
+			} else {
 
-		document.addEventListener( 'mousemove', onMouseMove, false );
-		document.addEventListener( 'pointerlockchange', onPointerlockChange, false );
-		document.addEventListener( 'pointerlockerror', onPointerlockError, false );
+				scope.dispatchEvent( unlockEvent );
 
-	};
+				scope.isLocked = false;
 
-	this.disconnect = function () {
+			}
 
-		document.removeEventListener( 'mousemove', onMouseMove, false );
-		document.removeEventListener( 'pointerlockchange', onPointerlockChange, false );
-		document.removeEventListener( 'pointerlockerror', onPointerlockError, false );
+		}
 
-	};
+		function onPointerlockError() {
 
-	this.dispose = function () {
+			console.error( 'THREE.PointerLockControls: Unable to use Pointer Lock API' );
 
-		this.disconnect();
+		}
 
-	};
+		this.connect = function () {
 
-	this.getObject = function () { // retaining this method for backward compatibility
-
-		return camera;
-
-	};
-
-	this.getDirection = function () {
-
-		var direction = new THREE.Vector3( 0, 0, - 1 );
-
-		return function ( v ) {
-
-			return v.copy( direction ).applyQuaternion( camera.quaternion );
+			document.addEventListener( 'mousemove', onMouseMove, false );
+			document.addEventListener( 'pointerlockchange', onPointerlockChange, false );
+			document.addEventListener( 'pointerlockerror', onPointerlockError, false );
 
 		};
 
-	}();
+		this.disconnect = function () {
 
-	this.lock = function () {
+			document.removeEventListener( 'mousemove', onMouseMove, false );
+			document.removeEventListener( 'pointerlockchange', onPointerlockChange, false );
+			document.removeEventListener( 'pointerlockerror', onPointerlockError, false );
 
-		this.domElement.requestPointerLock();
+		};
+
+		this.dispose = function () {
+
+			this.disconnect();
+
+		};
+
+		this.getObject = function () { // retaining this method for backward compatibility
+
+			return camera;
+
+		};
+
+		this.getDirection = function () {
+
+			var direction = new THREE.Vector3( 0, 0, - 1 );
+
+			return function ( v ) {
+
+				return v.copy( direction ).applyQuaternion( camera.quaternion );
+
+			};
+
+		}();
+
+		this.lock = function () {
+
+			this.domElement.requestPointerLock();
+
+		};
+
+		this.unlock = function () {
+
+			document.exitPointerLock();
+
+		};
+
+		this.connect();
 
 	};
 
-	this.unlock = function () {
+	PointerLockControls.prototype = Object.create( THREE.EventDispatcher.prototype );
+	PointerLockControls.prototype.constructor = PointerLockControls;
 
-		document.exitPointerLock();
+	exports.PointerLockControls = PointerLockControls;
 
-	};
-
-	this.connect();
-
-};
-
-THREE.PointerLockControls.prototype = Object.create( THREE.EventDispatcher.prototype );
-THREE.PointerLockControls.prototype.constructor = THREE.PointerLockControls;
+}));

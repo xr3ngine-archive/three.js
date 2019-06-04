@@ -1,203 +1,217 @@
 /**
- * @author mrdoob / http://mrdoob.com/
- * @author Mugen87 / https://github.com/Mugen87
+ * Generated from 'examples/jsm/loaders/PlayCanvasLoader.js'
  */
 
-THREE.PlayCanvasLoader = function ( manager ) {
+(function (global, factory) {
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
+	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
+	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
+}(this, function (exports, THREE) { 'use strict';
 
-	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 * @author Mugen87 / https://github.com/Mugen87
+	 */
 
-};
+	var PlayCanvasLoader = function ( manager ) {
 
-THREE.PlayCanvasLoader.prototype = {
+		this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
 
-	constructor: THREE.PlayCanvasLoader,
+	};
 
-	load: function ( url, onLoad, onProgress, onError ) {
+	PlayCanvasLoader.prototype = {
 
-		var scope = this;
+		constructor: PlayCanvasLoader,
 
-		var loader = new THREE.FileLoader( scope.manager );
-		loader.setPath( scope.path );
-		loader.load( url, function ( text ) {
+		load: function ( url, onLoad, onProgress, onError ) {
 
-			onLoad( scope.parse( JSON.parse( text ) ) );
+			var scope = this;
 
-		}, onProgress, onError );
+			var loader = new THREE.FileLoader( scope.manager );
+			loader.setPath( scope.path );
+			loader.load( url, function ( text ) {
 
-	},
+				onLoad( scope.parse( JSON.parse( text ) ) );
 
-	setPath: function ( value ) {
+			}, onProgress, onError );
 
-		this.path = value;
-		return this;
+		},
 
-	},
+		setPath: function ( value ) {
 
-	parse: function ( json ) {
+			this.path = value;
+			return this;
 
-		function parseVertices( data ) {
+		},
 
-			var attributes = {};
+		parse: function ( json ) {
 
-			// create a buffer attribute for each array that contains vertex information
+			function parseVertices( data ) {
 
-			for ( var name in data ) {
+				var attributes = {};
 
-				var array = data[ name ];
+				// create a buffer attribute for each array that contains vertex information
 
-				var type = array.type;
-				var size = array.components;
+				for ( var name in data ) {
 
-				var attribute;
+					var array = data[ name ];
 
-				switch ( type ) {
+					var type = array.type;
+					var size = array.components;
 
-					case 'float32':
-						attribute = new THREE.Float32BufferAttribute( array.data, size );
-						break;
+					var attribute;
 
-					case 'uint8':
-						attribute = new THREE.Uint8BufferAttribute( array.data, size );
-						break;
+					switch ( type ) {
 
-					case 'uint16':
-						attribute = new THREE.Uint16BufferAttribute( array.data, size );
-						break;
+						case 'float32':
+							attribute = new THREE.Float32BufferAttribute( array.data, size );
+							break;
 
-					default:
-						console.log( 'THREE.PlayCanvasLoader: Array type "%s" not yet supported.', type );
+						case 'uint8':
+							attribute = new THREE.Uint8BufferAttribute( array.data, size );
+							break;
 
-				}
+						case 'uint16':
+							attribute = new THREE.Uint16BufferAttribute( array.data, size );
+							break;
 
-				attributes[ name ] = attribute;
+						default:
+							console.log( 'THREE.PlayCanvasLoader: Array type "%s" not yet supported.', type );
 
-			}
+					}
 
-			data._attributes = attributes;
-
-		}
-
-		function parseMeshes( data ) {
-
-			// create buffer geometry
-
-			var geometry = new THREE.BufferGeometry();
-
-			geometry.setIndex( data.indices );
-
-			var attributes = model.vertices[ data.vertices ]._attributes;
-
-			for ( var name in attributes ) {
-
-				var attribute = attributes[ name ];
-
-				if ( name === 'texCoord0' ) name = 'uv';
-
-				geometry.addAttribute( name, attribute );
-
-			}
-
-			data._geometry = geometry;
-
-		}
-
-		function parseMeshInstances( data ) {
-
-			var node = model.nodes[ data.node ];
-			var mesh = model.meshes[ data.mesh ];
-
-			if ( node._geometries === undefined ) {
-
-				node._geometries = [];
-
-			}
-
-			node._geometries.push( mesh._geometry );
-
-		}
-
-		function parseNodes( data ) {
-
-			var object = new THREE.Group();
-
-			var geometries = data._geometries;
-
-			if ( geometries !== undefined ) {
-
-				var material = new THREE.MeshPhongMaterial();
-
-				for ( var i = 0, l = geometries.length; i < l; i ++ ) {
-
-					var geometry = geometries[ i ];
-
-					object.add( new THREE.Mesh( geometry, material ) );
+					attributes[ name ] = attribute;
 
 				}
 
+				data._attributes = attributes;
+
 			}
 
-			for ( var i = 0, l = data.rotation.length; i < l; i ++ ) {
+			function parseMeshes( data ) {
 
-				data.rotation[ i ] *= Math.PI / 180;
+				// create buffer geometry
+
+				var geometry = new THREE.BufferGeometry();
+
+				geometry.setIndex( data.indices );
+
+				var attributes = model.vertices[ data.vertices ]._attributes;
+
+				for ( var name in attributes ) {
+
+					var attribute = attributes[ name ];
+
+					if ( name === 'texCoord0' ) name = 'uv';
+
+					geometry.addAttribute( name, attribute );
+
+				}
+
+				data._geometry = geometry;
+
+			}
+
+			function parseMeshInstances( data ) {
+
+				var node = model.nodes[ data.node ];
+				var mesh = model.meshes[ data.mesh ];
+
+				if ( node._geometries === undefined ) {
+
+					node._geometries = [];
+
+				}
+
+				node._geometries.push( mesh._geometry );
+
+			}
+
+			function parseNodes( data ) {
+
+				var object = new THREE.Group();
+
+				var geometries = data._geometries;
+
+				if ( geometries !== undefined ) {
+
+					var material = new THREE.MeshPhongMaterial();
+
+					for ( var i = 0, l = geometries.length; i < l; i ++ ) {
+
+						var geometry = geometries[ i ];
+
+						object.add( new THREE.Mesh( geometry, material ) );
+
+					}
+
+				}
+
+				for ( var i = 0, l = data.rotation.length; i < l; i ++ ) {
+
+					data.rotation[ i ] *= Math.PI / 180;
+
+				}
+
+				//
+
+				object.name = data.name;
+
+				object.position.fromArray( data.position );
+				object.quaternion.setFromEuler( new THREE.Euler().fromArray( data.rotation ) );
+				object.scale.fromArray( data.scale );
+
+				data._object = object;
 
 			}
 
 			//
 
-			object.name = data.name;
+			var model = json.model;
 
-			object.position.fromArray( data.position );
-			object.quaternion.setFromEuler( new THREE.Euler().fromArray( data.rotation ) );
-			object.scale.fromArray( data.scale );
+			for ( var i = 0, l = model.vertices.length; i < l; i ++ ) {
 
-			data._object = object;
+				parseVertices( model.vertices[ i ] );
 
-		}
+			}
 
-		//
+			for ( var i = 0, l = model.meshes.length; i < l; i ++ ) {
 
-		var model = json.model;
+				parseMeshes( model.meshes[ i ] );
 
-		for ( var i = 0, l = model.vertices.length; i < l; i ++ ) {
+			}
 
-			parseVertices( model.vertices[ i ] );
+			for ( var i = 0, l = model.meshInstances.length; i < l; i ++ ) {
 
-		}
+				parseMeshInstances( model.meshInstances[ i ] );
 
-		for ( var i = 0, l = model.meshes.length; i < l; i ++ ) {
+			}
 
-			parseMeshes( model.meshes[ i ] );
+			for ( var i = 0, l = model.nodes.length; i < l; i ++ ) {
 
-		}
+				parseNodes( model.nodes[ i ] );
 
-		for ( var i = 0, l = model.meshInstances.length; i < l; i ++ ) {
+			}
 
-			parseMeshInstances( model.meshInstances[ i ] );
+			// setup scene hierarchy
 
-		}
+			for ( var i = 0, l = model.parents.length; i < l; i ++ ) {
 
-		for ( var i = 0, l = model.nodes.length; i < l; i ++ ) {
+				var parent = model.parents[ i ];
 
-			parseNodes( model.nodes[ i ] );
+				if ( parent === - 1 ) continue;
 
-		}
+				model.nodes[ parent ]._object.add( model.nodes[ i ]._object );
 
-		// setup scene hierarchy
 
-		for ( var i = 0, l = model.parents.length; i < l; i ++ ) {
+			}
 
-			var parent = model.parents[ i ];
-
-			if ( parent === - 1 ) continue;
-
-			model.nodes[ parent ]._object.add( model.nodes[ i ]._object );
-
+			return model.nodes[ 0 ]._object;
 
 		}
 
-		return model.nodes[ 0 ]._object;
+	};
 
-	}
+	exports.PlayCanvasLoader = PlayCanvasLoader;
 
-};
+}));
