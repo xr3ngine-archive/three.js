@@ -2,6 +2,7 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
+import { EventDispatcher } from '../../core/EventDispatcher.js';
 import { Group } from '../../objects/Group.js';
 import { Matrix4 } from '../../math/Matrix4.js';
 import { Vector2 } from '../../math/Vector2.js';
@@ -29,7 +30,7 @@ function WebVRManager( renderer ) {
 
 	var framebufferScaleFactor = 1.0;
 
-	var frameOfReferenceType = 'stage';
+	var referenceSpaceType = 'local-floor';
 
 	if ( typeof window !== 'undefined' && 'VRFrameData' in window ) {
 
@@ -97,6 +98,8 @@ function WebVRManager( renderer ) {
 
 			animation.start();
 
+			scope.dispatchEvent( { type: 'sessionstart' } );
+
 		} else {
 
 			if ( scope.enabled ) {
@@ -114,6 +117,8 @@ function WebVRManager( renderer ) {
 
 			animation.stop();
 			renderer.animation.start();
+
+			scope.dispatchEvent( { type: 'sessionend' } );
 
 		}
 
@@ -257,9 +262,9 @@ function WebVRManager( renderer ) {
 
 	};
 
-	this.setFrameOfReferenceType = function ( value ) {
+	this.setReferenceSpaceType = function ( value ) {
 
-		frameOfReferenceType = value;
+		referenceSpaceType = value;
 
 	};
 
@@ -271,7 +276,7 @@ function WebVRManager( renderer ) {
 
 	this.getCamera = function ( camera ) {
 
-		var userHeight = frameOfReferenceType === 'stage' ? 1.6 : 0;
+		var userHeight = referenceSpaceType === 'local-floor' ? 1.6 : 0;
 
 		if ( isPresenting() === false ) {
 
@@ -289,7 +294,7 @@ function WebVRManager( renderer ) {
 
 		//
 
-		if ( frameOfReferenceType === 'stage' ) {
+		if ( referenceSpaceType === 'local-floor' ) {
 
 			var stageParameters = device.stageParameters;
 
@@ -346,7 +351,7 @@ function WebVRManager( renderer ) {
 
 		standingMatrixInverse.getInverse( standingMatrix );
 
-		if ( frameOfReferenceType === 'stage' ) {
+		if ( referenceSpaceType === 'local-floor' ) {
 
 			cameraL.matrixWorldInverse.multiply( standingMatrixInverse );
 			cameraR.matrixWorldInverse.multiply( standingMatrixInverse );
@@ -429,6 +434,16 @@ function WebVRManager( renderer ) {
 
 	};
 
+	// DEPRECATED
+
+	this.setFrameOfReferenceType = function () {
+
+		console.warn( 'THREE.WebVRManager: setFrameOfReferenceType() has been deprecated.' );
+
+	};
+
 }
+
+Object.assign( WebVRManager.prototype, EventDispatcher.prototype );
 
 export { WebVRManager };

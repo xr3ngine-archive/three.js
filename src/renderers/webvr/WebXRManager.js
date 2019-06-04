@@ -2,6 +2,7 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
+import { EventDispatcher } from '../../core/EventDispatcher.js';
 import { Group } from '../../objects/Group.js';
 import { Matrix4 } from '../../math/Matrix4.js';
 import { Vector4 } from '../../math/Vector4.js';
@@ -11,6 +12,8 @@ import { WebGLAnimation } from '../webgl/WebGLAnimation.js';
 import { setProjectionFromUnion } from './WebVRUtils.js';
 
 function WebXRManager( renderer ) {
+
+	var scope = this;
 
 	var gl = renderer.context;
 
@@ -96,6 +99,8 @@ function WebXRManager( renderer ) {
 		animation.stop();
 		renderer.animation.start();
 
+		scope.dispatchEvent( { type: 'sessionend' } );
+
 	}
 
 	function onRequestReferenceSpace( value ) {
@@ -104,6 +109,8 @@ function WebXRManager( renderer ) {
 
 		animation.setContext( session );
 		animation.start();
+
+		scope.dispatchEvent( { type: 'sessionstart' } );
 
 	}
 
@@ -116,6 +123,12 @@ function WebXRManager( renderer ) {
 	this.setReferenceSpaceType = function ( value ) {
 
 		referenceSpaceType = value;
+
+	};
+
+	this.getSession = function () {
+
+		return session;
 
 	};
 
@@ -233,15 +246,15 @@ function WebXRManager( renderer ) {
 
 		if ( pose !== null ) {
 
-			var layer = session.renderState.baseLayer;
 			var views = pose.views;
+			var baseLayer = session.renderState.baseLayer;
 
-			renderer.setFramebuffer( session.renderState.baseLayer.framebuffer );
+			renderer.setFramebuffer( baseLayer.framebuffer );
 
 			for ( var i = 0; i < views.length; i ++ ) {
 
 				var view = views[ i ];
-				var viewport = layer.getViewport( view );
+				var viewport = baseLayer.getViewport( view );
 				var viewMatrix = view.transform.inverse.matrix;
 
 				var camera = cameraVR.cameras[ i ];
@@ -323,8 +336,16 @@ function WebXRManager( renderer ) {
 
 	};
 
+	this.setFrameOfReferenceType = function () {
+
+		console.warn( 'THREE.WebXRManager: setFrameOfReferenceType() has been deprecated.' );
+
+	};
+
 	this.submitFrame = function () {};
 
 }
+
+Object.assign( WebXRManager.prototype, EventDispatcher.prototype );
 
 export { WebXRManager };

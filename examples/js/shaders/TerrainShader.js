@@ -1,19 +1,27 @@
 /**
- * @author alteredq / http://alteredqualia.com/
- *
+ * Generated from 'examples/jsm/shaders/TerrainShader.js'
  */
 
-THREE.ShaderTerrain = {
+(function (global, factory) {
+	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
+	typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
+	(global = global || self, factory(global.THREE = global.THREE || {}, global.THREE));
+}(this, function (exports, THREE) { 'use strict';
 
-	/* -------------------------------------------------------------------------
-	//	Dynamic terrain shader
-	//		- Blinn-Phong
-	//		- height + normal + diffuse1 + diffuse2 + specular + detail maps
-	//		- point, directional and hemisphere lights (use with "lights: true" material option)
-	//		- shadow maps receiving
-	 ------------------------------------------------------------------------- */
+	/**
+	 * @author alteredq / http://alteredqualia.com/
+	 *
+	 */
 
-	'terrain' : {
+	var TerrainShader = {
+
+		/* -------------------------------------------------------------------------
+		//	Dynamic terrain shader
+		//		- Blinn-Phong
+		//		- height + normal + diffuse1 + diffuse2 + specular + detail maps
+		//		- point, directional and hemisphere lights (use with "lights: true" material option)
+		//		- shadow maps receiving
+		 ------------------------------------------------------------------------- */
 
 		uniforms: THREE.UniformsUtils.merge( [
 
@@ -92,11 +100,11 @@ THREE.ShaderTerrain = {
 			THREE.ShaderChunk[ "fog_pars_fragment" ],
 
 			"float calcLightAttenuation( float lightDistance, float cutoffDistance, float decayExponent ) {",
- 				"if ( decayExponent > 0.0 ) {",
- 					"return pow( saturate( - lightDistance / cutoffDistance + 1.0 ), decayExponent );",
- 				"}",
- 				"return 1.0;",
- 			"}",
+					"if ( decayExponent > 0.0 ) {",
+						"return pow( saturate( - lightDistance / cutoffDistance + 1.0 ), decayExponent );",
+					"}",
+					"return 1.0;",
+				"}",
 
 			"void main() {",
 
@@ -319,6 +327,8 @@ THREE.ShaderTerrain = {
 
 		].join( "\n" )
 
-	}
+	};
 
-};
+	exports.TerrainShader = TerrainShader;
+
+}));

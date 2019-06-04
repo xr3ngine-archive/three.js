@@ -185,7 +185,7 @@
 
 	} );
 
-	var REVISION = '105dev';
+	var REVISION = '106dev';
 	var MOUSE = { LEFT: 0, MIDDLE: 1, RIGHT: 2 };
 	var CullFaceNone = 0;
 	var CullFaceBack = 1;
@@ -3724,6 +3724,10 @@
 
 		this.texture = new Texture( undefined, undefined, options.wrapS, options.wrapT, options.magFilter, options.minFilter, options.format, options.type, options.anisotropy, options.encoding );
 
+		this.texture.image = {};
+		this.texture.image.width = width;
+		this.texture.image.height = height;
+
 		this.texture.generateMipmaps = options.generateMipmaps !== undefined ? options.generateMipmaps : false;
 		this.texture.minFilter = options.minFilter !== undefined ? options.minFilter : LinearFilter;
 
@@ -3745,6 +3749,9 @@
 
 				this.width = width;
 				this.height = height;
+
+				this.texture.image.width = width;
+				this.texture.image.height = height;
 
 				this.dispose();
 
@@ -6574,9 +6581,9 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 	var meshphysical_vert = "#define PHYSICAL\nvarying vec3 vViewPosition;\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n\t#ifdef USE_TANGENT\n\t\tvarying vec3 vTangent;\n\t\tvarying vec3 vBitangent;\n\t#endif\n#endif\n#include <common>\n#include <uv_pars_vertex>\n#include <uv2_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <color_pars_vertex>\n#include <fog_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <shadowmap_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <uv2_vertex>\n\t#include <color_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n#ifndef FLAT_SHADED\n\tvNormal = normalize( transformedNormal );\n\t#ifdef USE_TANGENT\n\t\tvTangent = normalize( transformedTangent );\n\t\tvBitangent = normalize( cross( vNormal, vTangent ) * tangent.w );\n\t#endif\n#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n\tvViewPosition = - mvPosition.xyz;\n\t#include <worldpos_vertex>\n\t#include <shadowmap_vertex>\n\t#include <fog_vertex>\n}";
 
-	var normal_frag = "#define NORMAL\nuniform float opacity;\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvarying vec3 vViewPosition;\n#endif\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n\t#ifdef USE_TANGENT\n\t\tvarying vec3 vTangent;\n\t\tvarying vec3 vBitangent;\n\t#endif\n#endif\n#include <packing>\n#include <uv_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\nvoid main() {\n\t#include <logdepthbuf_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tgl_FragColor = vec4( packNormalToRGB( normal ), opacity );\n}";
+	var normal_frag = "#define NORMAL\nuniform float opacity;\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvarying vec3 vViewPosition;\n#endif\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n\t#ifdef USE_TANGENT\n\t\tvarying vec3 vTangent;\n\t\tvarying vec3 vBitangent;\n\t#endif\n#endif\n#include <packing>\n#include <uv_pars_fragment>\n#include <bumpmap_pars_fragment>\n#include <normalmap_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\t#include <logdepthbuf_fragment>\n\t#include <normal_fragment_begin>\n\t#include <normal_fragment_maps>\n\tgl_FragColor = vec4( packNormalToRGB( normal ), opacity );\n}";
 
-	var normal_vert = "#define NORMAL\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvarying vec3 vViewPosition;\n#endif\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n\t#ifdef USE_TANGENT\n\t\tvarying vec3 vTangent;\n\t\tvarying vec3 vBitangent;\n\t#endif\n#endif\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n#ifndef FLAT_SHADED\n\tvNormal = normalize( transformedNormal );\n\t#ifdef USE_TANGENT\n\t\tvTangent = normalize( transformedTangent );\n\t\tvBitangent = normalize( cross( vNormal, vTangent ) * tangent.w );\n\t#endif\n#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n}";
+	var normal_vert = "#define NORMAL\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvarying vec3 vViewPosition;\n#endif\n#ifndef FLAT_SHADED\n\tvarying vec3 vNormal;\n\t#ifdef USE_TANGENT\n\t\tvarying vec3 vTangent;\n\t\tvarying vec3 vBitangent;\n\t#endif\n#endif\n#include <uv_pars_vertex>\n#include <displacementmap_pars_vertex>\n#include <morphtarget_pars_vertex>\n#include <skinning_pars_vertex>\n#include <logdepthbuf_pars_vertex>\n#include <clipping_planes_pars_vertex>\nvoid main() {\n\t#include <uv_vertex>\n\t#include <beginnormal_vertex>\n\t#include <morphnormal_vertex>\n\t#include <skinbase_vertex>\n\t#include <skinnormal_vertex>\n\t#include <defaultnormal_vertex>\n#ifndef FLAT_SHADED\n\tvNormal = normalize( transformedNormal );\n\t#ifdef USE_TANGENT\n\t\tvTangent = normalize( transformedTangent );\n\t\tvBitangent = normalize( cross( vNormal, vTangent ) * tangent.w );\n\t#endif\n#endif\n\t#include <begin_vertex>\n\t#include <morphtarget_vertex>\n\t#include <skinning_vertex>\n\t#include <displacementmap_vertex>\n\t#include <project_vertex>\n\t#include <logdepthbuf_vertex>\n\t#include <clipping_planes_vertex>\n#if defined( FLAT_SHADED ) || defined( USE_BUMPMAP ) || ( defined( USE_NORMALMAP ) && ! defined( OBJECTSPACE_NORMALMAP ) )\n\tvViewPosition = - mvPosition.xyz;\n#endif\n}";
 
 	var points_frag = "uniform vec3 diffuse;\nuniform float opacity;\n#include <common>\n#include <color_pars_fragment>\n#include <map_particle_pars_fragment>\n#include <fog_pars_fragment>\n#include <logdepthbuf_pars_fragment>\n#include <clipping_planes_pars_fragment>\nvoid main() {\n\t#include <clipping_planes_fragment>\n\tvec3 outgoingLight = vec3( 0.0 );\n\tvec4 diffuseColor = vec4( diffuse, opacity );\n\t#include <logdepthbuf_fragment>\n\t#include <map_particle_fragment>\n\t#include <color_fragment>\n\t#include <alphatest_fragment>\n\toutgoingLight = diffuseColor.rgb;\n\tgl_FragColor = vec4( outgoingLight, diffuseColor.a );\n\t#include <premultiplied_alpha_fragment>\n\t#include <tonemapping_fragment>\n\t#include <encodings_fragment>\n\t#include <fog_fragment>\n}";
 
@@ -17223,6 +17230,23 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
+	function WebGLShader( gl, type, string ) {
+
+		var shader = gl.createShader( type );
+
+		gl.shaderSource( shader, string );
+		gl.compileShader( shader );
+
+		return shader;
+
+	}
+
+	/**
+	 * @author mrdoob / http://mrdoob.com/
+	 */
+
+	var programIdCount = 0;
+
 	function addLineNumbers( string ) {
 
 		var lines = string.split( '\n' );
@@ -17236,42 +17260,6 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 		return lines.join( '\n' );
 
 	}
-
-	function WebGLShader( gl, type, string, debug ) {
-
-		var shader = gl.createShader( type );
-
-		gl.shaderSource( shader, string );
-		gl.compileShader( shader );
-
-		if ( debug === true ) {
-
-			if ( gl.getShaderParameter( shader, 35713 ) === false ) {
-
-				console.error( 'THREE.WebGLShader: Shader couldn\'t compile.' );
-
-			}
-
-			if ( gl.getShaderInfoLog( shader ) !== '' ) {
-
-				console.warn( 'THREE.WebGLShader: gl.getShaderInfoLog()', type === 35633 ? 'vertex' : 'fragment', gl.getShaderInfoLog( shader ), addLineNumbers( string ) );
-
-			}
-
-		}
-
-		// --enable-privileged-webgl-extension
-		// console.log( type, gl.getExtension( 'WEBGL_debug_shaders' ).getTranslatedShaderSource( shader ) );
-
-		return shader;
-
-	}
-
-	/**
-	 * @author mrdoob / http://mrdoob.com/
-	 */
-
-	var programIdCount = 0;
 
 	function getEncodingComponents( encoding ) {
 
@@ -17295,6 +17283,22 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 				throw new Error( 'unsupported encoding: ' + encoding );
 
 		}
+
+	}
+
+	function getShaderErrors( gl, shader, type ) {
+
+		var status = gl.getShaderParameter( shader, 35713 );
+		var log = gl.getShaderInfoLog( shader ).trim();
+
+		if ( status && log === '' ) return '';
+
+		// --enable-privileged-webgl-extension
+		// console.log( '**' + type + '**', gl.getExtension( 'WEBGL_debug_shaders' ).getTranslatedShaderSource( shader ) );
+
+		var source = gl.getShaderSource( shader );
+
+		return 'THREE.WebGLShader: gl.getShaderInfoLog() ' + type + '\n' + log + addLineNumbers( source );
 
 	}
 
@@ -17879,8 +17883,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 		// console.log( '*VERTEX*', vertexGlsl );
 		// console.log( '*FRAGMENT*', fragmentGlsl );
 
-		var glVertexShader = WebGLShader( gl, 35633, vertexGlsl, renderer.debug.checkShaderErrors );
-		var glFragmentShader = WebGLShader( gl, 35632, fragmentGlsl, renderer.debug.checkShaderErrors );
+		var glVertexShader = WebGLShader( gl, 35633, vertexGlsl );
+		var glFragmentShader = WebGLShader( gl, 35632, fragmentGlsl );
 
 		gl.attachShader( program, glVertexShader );
 		gl.attachShader( program, glFragmentShader );
@@ -17910,14 +17914,14 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			var runnable = true;
 			var haveDiagnostics = true;
 
-			// console.log( '**VERTEX**', gl.getExtension( 'WEBGL_debug_shaders' ).getTranslatedShaderSource( glVertexShader ) );
-			// console.log( '**FRAGMENT**', gl.getExtension( 'WEBGL_debug_shaders' ).getTranslatedShaderSource( glFragmentShader ) );
-
 			if ( gl.getProgramParameter( program, 35714 ) === false ) {
 
 				runnable = false;
 
-				console.error( 'THREE.WebGLProgram: shader error: ', gl.getError(), '35715', gl.getProgramParameter( program, 35715 ), 'gl.getProgramInfoLog', programLog, vertexLog, fragmentLog );
+				var vertexErrors = getShaderErrors( gl, glVertexShader, 'vertex' );
+				var fragmentErrors = getShaderErrors( gl, glFragmentShader, 'fragment' );
+
+				console.error( 'THREE.WebGLProgram: shader error: ', gl.getError(), '35715', gl.getProgramParameter( program, 35715 ), 'gl.getProgramInfoLog', programLog, vertexErrors, fragmentErrors );
 
 			} else if ( programLog !== '' ) {
 
@@ -18705,7 +18709,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 	}
 
-	var count = 0;
+	var nextVersion = 0;
 
 	function WebGLLights() {
 
@@ -18713,16 +18717,15 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		var state = {
 
-			id: count ++,
+			version: 0,
 
 			hash: {
-				stateID: - 1,
 				directionalLength: - 1,
 				pointLength: - 1,
 				spotLength: - 1,
 				rectAreaLength: - 1,
 				hemiLength: - 1,
-				shadowsLength: - 1
+				shadowsLength: - 1,
 			},
 
 			ambient: [ 0, 0, 0 ],
@@ -18936,19 +18939,31 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			state.ambient[ 1 ] = g;
 			state.ambient[ 2 ] = b;
 
-			state.directional.length = directionalLength;
-			state.spot.length = spotLength;
-			state.rectArea.length = rectAreaLength;
-			state.point.length = pointLength;
-			state.hemi.length = hemiLength;
+			var hash = state.hash;
 
-			state.hash.stateID = state.id;
-			state.hash.directionalLength = directionalLength;
-			state.hash.pointLength = pointLength;
-			state.hash.spotLength = spotLength;
-			state.hash.rectAreaLength = rectAreaLength;
-			state.hash.hemiLength = hemiLength;
-			state.hash.shadowsLength = shadows.length;
+			if ( hash.directionalLength !== directionalLength ||
+				hash.pointLength !== pointLength ||
+				hash.spotLength !== spotLength ||
+				hash.rectAreaLength !== rectAreaLength ||
+				hash.hemiLength !== hemiLength ||
+				hash.shadowsLength !== shadows.length ) {
+
+				state.directional.length = directionalLength;
+				state.spot.length = spotLength;
+				state.rectArea.length = rectAreaLength;
+				state.point.length = pointLength;
+				state.hemi.length = hemiLength;
+
+				hash.directionalLength = directionalLength;
+				hash.pointLength = pointLength;
+				hash.spotLength = spotLength;
+				hash.rectAreaLength = rectAreaLength;
+				hash.hemiLength = hemiLength;
+				hash.shadowsLength = shadows.length;
+
+				state.version = nextVersion ++;
+
+			}
 
 		}
 
@@ -20995,7 +21010,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 					_gl.pixelStorei( 37440, texture.flipY );
 
-					var isCompressed = ( texture && texture.isCompressedTexture );
+					var isCompressed = ( texture.image[ 0 ] && texture.image[ 0 ].isCompressedTexture );
 					var isDataTexture = ( texture.image[ 0 ] && texture.image[ 0 ].isDataTexture );
 
 					var cubeImage = [];
@@ -22409,7 +22424,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		var framebufferScaleFactor = 1.0;
 
-		var frameOfReferenceType = 'stage';
+		var referenceSpaceType = 'local-floor';
 
 		if ( typeof window !== 'undefined' && 'VRFrameData' in window ) {
 
@@ -22466,6 +22481,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 				animation.start();
 
+				scope.dispatchEvent( { type: 'sessionstart' } );
+
 			} else {
 
 				if ( scope.enabled ) {
@@ -22476,6 +22493,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 				animation.stop();
 				renderer.animation.start();
+
+				scope.dispatchEvent( { type: 'sessionend' } );
 
 			}
 
@@ -22619,9 +22638,9 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		};
 
-		this.setFrameOfReferenceType = function ( value ) {
+		this.setReferenceSpaceType = function ( value ) {
 
-			frameOfReferenceType = value;
+			referenceSpaceType = value;
 
 		};
 
@@ -22633,7 +22652,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		this.getCamera = function ( camera ) {
 
-			var userHeight = frameOfReferenceType === 'stage' ? 1.6 : 0;
+			var userHeight = referenceSpaceType === 'local-floor' ? 1.6 : 0;
 
 			if ( isPresenting() === false ) {
 
@@ -22651,7 +22670,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 			//
 
-			if ( frameOfReferenceType === 'stage' ) {
+			if ( referenceSpaceType === 'local-floor' ) {
 
 				var stageParameters = device.stageParameters;
 
@@ -22708,7 +22727,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 			standingMatrixInverse.getInverse( standingMatrix );
 
-			if ( frameOfReferenceType === 'stage' ) {
+			if ( referenceSpaceType === 'local-floor' ) {
 
 				cameraL.matrixWorldInverse.multiply( standingMatrixInverse );
 				cameraR.matrixWorldInverse.multiply( standingMatrixInverse );
@@ -22791,13 +22810,25 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		};
 
+		// DEPRECATED
+
+		this.setFrameOfReferenceType = function () {
+
+			console.warn( 'THREE.WebVRManager: setFrameOfReferenceType() has been deprecated.' );
+
+		};
+
 	}
+
+	Object.assign( WebVRManager.prototype, EventDispatcher.prototype );
 
 	/**
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
 	function WebXRManager( renderer ) {
+
+		var scope = this;
 
 		var gl = renderer.context;
 
@@ -22883,6 +22914,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			animation.stop();
 			renderer.animation.start();
 
+			scope.dispatchEvent( { type: 'sessionend' } );
+
 		}
 
 		function onRequestReferenceSpace( value ) {
@@ -22891,6 +22924,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 			animation.setContext( session );
 			animation.start();
+
+			scope.dispatchEvent( { type: 'sessionstart' } );
 
 		}
 
@@ -22903,6 +22938,12 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 		this.setReferenceSpaceType = function ( value ) {
 
 			referenceSpaceType = value;
+
+		};
+
+		this.getSession = function () {
+
+			return session;
 
 		};
 
@@ -23020,15 +23061,15 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 			if ( pose !== null ) {
 
-				var layer = session.renderState.baseLayer;
 				var views = pose.views;
+				var baseLayer = session.renderState.baseLayer;
 
-				renderer.setFramebuffer( session.renderState.baseLayer.framebuffer );
+				renderer.setFramebuffer( baseLayer.framebuffer );
 
 				for ( var i = 0; i < views.length; i ++ ) {
 
 					var view = views[ i ];
-					var viewport = layer.getViewport( view );
+					var viewport = baseLayer.getViewport( view );
 					var viewMatrix = view.transform.inverse.matrix;
 
 					var camera = cameraVR.cameras[ i ];
@@ -23110,9 +23151,17 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 		};
 
+		this.setFrameOfReferenceType = function () {
+
+			console.warn( 'THREE.WebXRManager: setFrameOfReferenceType() has been deprecated.' );
+
+		};
+
 		this.submitFrame = function () {};
 
 	}
+
+	Object.assign( WebXRManager.prototype, EventDispatcher.prototype );
 
 	/**
 	 * @author supereggbert / http://www.paulbrunt.co.uk/
@@ -24620,8 +24669,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			var lights = currentRenderState.state.lights;
 			var shadowsArray = currentRenderState.state.shadowsArray;
 
-			var lightsHash = materialProperties.lightsHash;
-			var lightsStateHash = lights.state.hash;
+			var lightsStateVersion = lights.state.version;
 
 			var parameters = programCache.getParameters(
 				material, lights.state, shadowsArray, fog, _clipping.numPlanes, _clipping.numIntersection, object );
@@ -24641,21 +24689,9 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 				// changed glsl or parameters
 				releaseMaterialProgramReference( material );
 
-			} else if ( lightsHash.stateID !== lightsStateHash.stateID ||
-				lightsHash.directionalLength !== lightsStateHash.directionalLength ||
-				lightsHash.pointLength !== lightsStateHash.pointLength ||
-				lightsHash.spotLength !== lightsStateHash.spotLength ||
-				lightsHash.rectAreaLength !== lightsStateHash.rectAreaLength ||
-				lightsHash.hemiLength !== lightsStateHash.hemiLength ||
-				lightsHash.shadowsLength !== lightsStateHash.shadowsLength ) {
+			} else if ( materialProperties.lightsStateVersion !== lightsStateVersion ) {
 
-				lightsHash.stateID = lightsStateHash.stateID;
-				lightsHash.directionalLength = lightsStateHash.directionalLength;
-				lightsHash.pointLength = lightsStateHash.pointLength;
-				lightsHash.spotLength = lightsStateHash.spotLength;
-				lightsHash.rectAreaLength = lightsStateHash.rectAreaLength;
-				lightsHash.hemiLength = lightsStateHash.hemiLength;
-				lightsHash.shadowsLength = lightsStateHash.shadowsLength;
+				materialProperties.lightsStateVersion = lightsStateVersion;
 
 				programChange = false;
 
@@ -24756,19 +24792,8 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			materialProperties.fog = fog;
 
 			// store the light setup it was created for
-			if ( lightsHash === undefined ) {
 
-				materialProperties.lightsHash = lightsHash = {};
-
-			}
-
-			lightsHash.stateID = lightsStateHash.stateID;
-			lightsHash.directionalLength = lightsStateHash.directionalLength;
-			lightsHash.pointLength = lightsStateHash.pointLength;
-			lightsHash.spotLength = lightsStateHash.spotLength;
-			lightsHash.rectAreaLength = lightsStateHash.rectAreaLength;
-			lightsHash.hemiLength = lightsStateHash.hemiLength;
-			lightsHash.shadowsLength = lightsStateHash.shadowsLength;
+			materialProperties.lightsStateVersion = lightsStateVersion;
 
 			if ( material.lights ) {
 
@@ -24807,9 +24832,6 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 			var materialProperties = properties.get( material );
 			var lights = currentRenderState.state.lights;
 
-			var lightsHash = materialProperties.lightsHash;
-			var lightsStateHash = lights.state.hash;
-
 			if ( _clippingEnabled ) {
 
 				if ( _localClippingEnabled || camera !== _currentCamera ) {
@@ -24839,13 +24861,7 @@ float BlinnExponentToGGXRoughness( const in float blinnExponent ) {
 
 					material.needsUpdate = true;
 
-				} else if ( material.lights && ( lightsHash.stateID !== lightsStateHash.stateID ||
-					lightsHash.directionalLength !== lightsStateHash.directionalLength ||
-					lightsHash.pointLength !== lightsStateHash.pointLength ||
-					lightsHash.spotLength !== lightsStateHash.spotLength ||
-					lightsHash.rectAreaLength !== lightsStateHash.rectAreaLength ||
-					lightsHash.hemiLength !== lightsStateHash.hemiLength ||
-					lightsHash.shadowsLength !== lightsStateHash.shadowsLength ) ) {
+				} else if ( material.lights && materialProperties.lightsStateVersion !== lights.state.version ) {
 
 					material.needsUpdate = true;
 

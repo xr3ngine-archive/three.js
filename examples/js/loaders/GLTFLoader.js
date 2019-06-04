@@ -79,6 +79,12 @@
 				loader.setPath( this.path );
 				loader.setResponseType( 'arraybuffer' );
 
+				if ( this.options.crossOrigin === 'use-credentials' ) {
+
+					this.fileLoader.setWithCredentials( true );
+
+				}
+
 				loader.load( url, function ( data ) {
 
 					try {
@@ -1623,6 +1629,12 @@
 			this.fileLoader = new THREE.FileLoader( this.options.manager );
 			this.fileLoader.setResponseType( 'arraybuffer' );
 
+			if ( this.options.crossOrigin === 'use-credentials' ) {
+
+				this.fileLoader.setWithCredentials( true );
+
+			}
+
 		}
 
 		GLTFParser.prototype.parse = function ( onLoad, onError ) {
@@ -2629,7 +2641,13 @@
 								? new THREE.SkinnedMesh( geometry, material )
 								: new THREE.Mesh( geometry, material );
 
-							if ( mesh.isSkinnedMesh === true ) mesh.normalizeSkinWeights(); // #15319
+							if ( mesh.isSkinnedMesh === true && !mesh.geometry.attributes.skinWeight.normalized ) {
+
+								// we normalize floating point skin weight array to fix malformed assets (see #15319)
+								// it's important to skip this for non-float32 data since normalizeSkinWeights assumes non-normalized inputs
+								mesh.normalizeSkinWeights();
+
+							}
 
 							if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ) {
 
