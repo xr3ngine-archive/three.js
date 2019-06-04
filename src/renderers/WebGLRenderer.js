@@ -241,6 +241,8 @@ function WebGLRenderer( parameters ) {
 
 	var utils;
 
+	var videoTextures;
+
 	function initGLContext() {
 
 		extensions = new WebGLExtensions( _gl );
@@ -284,6 +286,8 @@ function WebGLRenderer( parameters ) {
 		indexedBufferRenderer = new WebGLIndexedBufferRenderer( _gl, extensions, info, capabilities );
 
 		info.programs = programCache.programs;
+
+		videoTextures = [];
 
 		_this.context = _gl;
 		_this.capabilities = capabilities;
@@ -1203,6 +1207,8 @@ function WebGLRenderer( parameters ) {
 		currentRenderList = renderLists.get( scene, camera );
 		currentRenderList.init();
 
+		videoTextures.length = 0;
+
 		projectObject( scene, camera, 0, _this.sortObjects );
 
 		if ( _this.sortObjects === true ) {
@@ -1230,6 +1236,17 @@ function WebGLRenderer( parameters ) {
 		if ( renderTarget !== undefined ) {
 
 			this.setRenderTarget( renderTarget );
+
+		}
+
+		// Pre-upload all video textures on Oculus Browser
+		if ( parameters.preuploadVideos ) {
+
+			for ( var i = 0, l = videoTextures.length; i < l; i ++ ) {
+
+				textures.setTexture2D( videoTextures[ i ], 0 );
+
+			}
 
 		}
 
@@ -1393,6 +1410,12 @@ function WebGLRenderer( parameters ) {
 						}
 
 					} else if ( material.visible ) {
+
+						if ( parameters.preuploadVideos && material.map && material.map.isVideoTexture ) {
+
+							videoTextures.push( material.map );
+
+						}
 
 						currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
 
