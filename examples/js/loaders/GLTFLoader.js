@@ -2579,7 +2579,7 @@ THREE.GLTFLoader = ( function () {
 							? new THREE.SkinnedMesh( geometry, material )
 							: new THREE.Mesh( geometry, material );
 
-						if ( mesh.isSkinnedMesh === true && !mesh.geometry.attributes.skinWeight.normalized ) {
+						if ( mesh.isSkinnedMesh === true && ! mesh.geometry.attributes.skinWeight.normalized ) {
 
 							// we normalize floating point skin weight array to fix malformed assets (see #15319)
 							// it's important to skip this for non-float32 data since normalizeSkinWeights assumes non-normalized inputs
@@ -2867,7 +2867,7 @@ THREE.GLTFLoader = ( function () {
 
 					for ( var j = 0, jl = outputArray.length; j < jl; j ++ ) {
 
-						scaled[j] = outputArray[j] * scale;
+						scaled[ j ] = outputArray[ j ] * scale;
 
 					}
 
