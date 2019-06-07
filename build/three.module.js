@@ -3820,6 +3820,7 @@ WebGLMultisampleRenderTarget.prototype = Object.assign( Object.create( WebGLRend
 
 /**
  * @author alteredq / http://alteredqualia.com
+ * @author WestLangley / http://github.com/WestLangley
  */
 
 function WebGLRenderTargetCube( width, height, options ) {
@@ -3832,6 +3833,99 @@ WebGLRenderTargetCube.prototype = Object.create( WebGLRenderTarget.prototype );
 WebGLRenderTargetCube.prototype.constructor = WebGLRenderTargetCube;
 
 WebGLRenderTargetCube.prototype.isWebGLRenderTargetCube = true;
+
+WebGLRenderTargetCube.prototype.fromEquirectangularTexture = function ( renderer, texture ) {
+
+	this.texture.type = texture.type;
+	this.texture.format = texture.format;
+	this.texture.encoding = texture.encoding;
+
+	var scene = new THREE.Scene();
+
+	var shader = {
+
+		uniforms: {
+			tEquirect: { value: null },
+		},
+
+		vertexShader:
+
+			`
+			varying vec3 vWorldDirection;
+
+			vec3 transformDirection( in vec3 dir, in mat4 matrix ) {
+
+				return normalize( ( matrix * vec4( dir, 0.0 ) ).xyz );
+
+			}
+
+			void main() {
+
+				vWorldDirection = transformDirection( position, modelMatrix );
+
+				#include <begin_vertex>
+				#include <project_vertex>
+
+			}
+			`,
+
+		fragmentShader:
+
+			`
+			uniform sampler2D tEquirect;
+
+			varying vec3 vWorldDirection;
+
+			#define RECIPROCAL_PI 0.31830988618
+			#define RECIPROCAL_PI2 0.15915494
+
+			void main() {
+
+				vec3 direction = normalize( vWorldDirection );
+
+				vec2 sampleUV;
+
+				sampleUV.y = asin( clamp( direction.y, - 1.0, 1.0 ) ) * RECIPROCAL_PI + 0.5;
+
+				sampleUV.x = atan( direction.z, direction.x ) * RECIPROCAL_PI2 + 0.5;
+
+				gl_FragColor = texture2D( tEquirect, sampleUV );
+
+			}
+			`
+	};
+
+	var material = new THREE.ShaderMaterial( {
+
+		type: 'CubemapFromEquirect',
+
+		uniforms: THREE.UniformsUtils.clone( shader.uniforms ),
+		vertexShader: shader.vertexShader,
+		fragmentShader: shader.fragmentShader,
+		side: THREE.BackSide,
+		blending: THREE.NoBlending
+
+	} );
+
+	material.uniforms.tEquirect.value = texture;
+
+	var mesh = new THREE.Mesh( new THREE.BoxBufferGeometry( 5, 5, 5 ), material );
+
+	scene.add( mesh );
+
+	var camera = new THREE.CubeCamera( 1, 10, 1 );
+
+	camera.renderTarget = this;
+	camera.renderTarget.texture.name = 'CubeCameraTexture';
+
+	camera.update( renderer, scene );
+
+	mesh.geometry.dispose();
+	mesh.material.dispose();
+
+	return this;
+
+};
 
 /**
  * @author alteredq / http://alteredqualia.com/
@@ -6165,7 +6259,7 @@ var shadowmask_pars_fragment = "float getShadowMask() {\n\tfloat shadow = 1.0;\n
 
 var skinbase_vertex = "#ifdef USE_SKINNING\n\tmat4 boneMatX = getBoneMatrix( skinIndex.x );\n\tmat4 boneMatY = getBoneMatrix( skinIndex.y );\n\tmat4 boneMatZ = getBoneMatrix( skinIndex.z );\n\tmat4 boneMatW = getBoneMatrix( skinIndex.w );\n#endif";
 
-var skinning_pars_vertex = "#ifdef USE_SKINNING\n\tuniform mat4 bindMatrix;\n\tuniform mat4 bindMatrixInverse;\n\t#ifdef BONE_TEXTURE\n\t\tuniform sampler2D boneTexture;\n\t\tuniform int boneTextureSize;\n\t\tmat4 getBoneMatrix( const in float i ) {\n\t\t\tfloat j = i * 4.0;\n\t\t\tfloat x = mod( j, float( boneTextureSize ) );\n\t\t\tfloat y = floor( j / float( boneTextureSize ) );\n\t\t\tfloat dx = 1.0 / float( boneTextureSize );\n\t\t\tfloat dy = 1.0 / float( boneTextureSize );\n\t\t\ty = dy * ( y + 0.5 );\n\t\t\tvec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );\n\t\t\tvec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );\n\t\t\tvec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );\n\t\t\tvec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );\n\t\t\tmat4 bone = mat4( v1, v2, v3, v4 );\n\t\t\treturn bone;\n\t\t}\n\t#else\n\t\tuniform mat4 boneMatrices[ MAX_BONES ];\n\t\tmat4 getBoneMatrix( const in float i ) {\n\t\t\tmat4 bone = boneMatrices[ int(i) ];\n\t\t\treturn bone;\n\t\t}\n\t#endif\n#endif";
+var skinning_pars_vertex = "#ifdef USE_SKINNING\n\tuniform mat4 bindMatrix;\n\tuniform mat4 bindMatrixInverse;\n\t#ifdef BONE_TEXTURE\n\t\tuniform highp sampler2D boneTexture;\n\t\tuniform int boneTextureSize;\n\t\tmat4 getBoneMatrix( const in float i ) {\n\t\t\tfloat j = i * 4.0;\n\t\t\tfloat x = mod( j, float( boneTextureSize ) );\n\t\t\tfloat y = floor( j / float( boneTextureSize ) );\n\t\t\tfloat dx = 1.0 / float( boneTextureSize );\n\t\t\tfloat dy = 1.0 / float( boneTextureSize );\n\t\t\ty = dy * ( y + 0.5 );\n\t\t\tvec4 v1 = texture2D( boneTexture, vec2( dx * ( x + 0.5 ), y ) );\n\t\t\tvec4 v2 = texture2D( boneTexture, vec2( dx * ( x + 1.5 ), y ) );\n\t\t\tvec4 v3 = texture2D( boneTexture, vec2( dx * ( x + 2.5 ), y ) );\n\t\t\tvec4 v4 = texture2D( boneTexture, vec2( dx * ( x + 3.5 ), y ) );\n\t\t\tmat4 bone = mat4( v1, v2, v3, v4 );\n\t\t\treturn bone;\n\t\t}\n\t#else\n\t\tuniform mat4 boneMatrices[ MAX_BONES ];\n\t\tmat4 getBoneMatrix( const in float i ) {\n\t\t\tmat4 bone = boneMatrices[ int(i) ];\n\t\t\treturn bone;\n\t\t}\n\t#endif\n#endif";
 
 var skinning_vertex = "#ifdef USE_SKINNING\n\tvec4 skinVertex = bindMatrix * vec4( transformed, 1.0 );\n\tvec4 skinned = vec4( 0.0 );\n\tskinned += boneMatX * skinVertex * skinWeight.x;\n\tskinned += boneMatY * skinVertex * skinWeight.y;\n\tskinned += boneMatZ * skinVertex * skinWeight.z;\n\tskinned += boneMatW * skinVertex * skinWeight.w;\n\ttransformed = ( bindMatrixInverse * skinned ).xyz;\n#endif";
 
@@ -12684,7 +12778,7 @@ BoxBufferGeometry.prototype.constructor = BoxBufferGeometry;
 
 // PlaneGeometry
 
-function PlaneGeometry( width, height, widthSegments, heightSegments ) {
+function PlaneGeometry( width, height, widthSegments, heightSegments, flipY ) {
 
 	Geometry.call( this );
 
@@ -12694,7 +12788,8 @@ function PlaneGeometry( width, height, widthSegments, heightSegments ) {
 		width: width,
 		height: height,
 		widthSegments: widthSegments,
-		heightSegments: heightSegments
+		heightSegments: heightSegments,
+		flipY
 	};
 
 	this.fromBufferGeometry( new PlaneBufferGeometry( width, height, widthSegments, heightSegments ) );
@@ -12707,7 +12802,7 @@ PlaneGeometry.prototype.constructor = PlaneGeometry;
 
 // PlaneBufferGeometry
 
-function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
+function PlaneBufferGeometry( width, height, widthSegments, heightSegments, flipY = true ) {
 
 	BufferGeometry.call( this );
 
@@ -12717,7 +12812,8 @@ function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
 		width: width,
 		height: height,
 		widthSegments: widthSegments,
-		heightSegments: heightSegments
+		heightSegments: heightSegments,
+		flipY: flipY
 	};
 
 	width = width || 1;
@@ -12759,7 +12855,11 @@ function PlaneBufferGeometry( width, height, widthSegments, heightSegments ) {
 			normals.push( 0, 0, 1 );
 
 			uvs.push( ix / gridX );
-			uvs.push( 1 - ( iy / gridY ) );
+			uvs.push(
+				flipY ?
+					1 - ( iy / gridY ) :
+					iy / gridY
+			);
 
 		}
 
@@ -15204,6 +15304,8 @@ function WebGLCapabilities( gl, extensions, parameters ) {
 
 	var maxSamples = isWebGL2 ? gl.getParameter( 36183 ) : 0;
 
+	var multiview = isWebGL2 && ( !! extensions.get( 'WEBGL_multiview' ) || !! extensions.get( 'OVR_multiview' ) );
+
 	return {
 
 		isWebGL2: isWebGL2,
@@ -15228,7 +15330,9 @@ function WebGLCapabilities( gl, extensions, parameters ) {
 		floatFragmentTextures: floatFragmentTextures,
 		floatVertexTextures: floatVertexTextures,
 
-		maxSamples: maxSamples
+		maxSamples: maxSamples,
+
+		multiview: multiview
 
 	};
 
@@ -17302,6 +17406,22 @@ function WebGLProgram( renderer, extensions, code, material, shader, parameters,
 			'uniform mat3 normalMatrix;',
 			'uniform vec3 cameraPosition;',
 
+			renderer.vr.multiview ? [ // For VR multiview
+
+				'uniform mat4 modelViewMatrix2;',
+				'uniform mat4 projectionMatrix2;',
+				'uniform mat4 viewMatrix2;',
+				'uniform mat3 normalMatrix2;',
+				'uniform vec3 cameraPosition2;',
+
+				'#define modelViewMatrix (gl_ViewID_OVR==0u?modelViewMatrix:modelViewMatrix2)',
+				'#define projectionMatrix (gl_ViewID_OVR==0u?projectionMatrix:projectionMatrix2)',
+				'#define viewMatrix (gl_ViewID_OVR==0u?viewMatrix:viewMatrix2)',
+				'#define normalMatrix (gl_ViewID_OVR==0u?normalMatrix:normalMatrix2)',
+				'#define cameraPosition (gl_ViewID_OVR==0u?cameraPosition:cameraPosition2)'
+
+			].join( '\n' ) : '',
+
 			'attribute vec3 position;',
 			'attribute vec3 normal;',
 			'attribute vec2 uv;',
@@ -17414,6 +17534,14 @@ function WebGLProgram( renderer, extensions, code, material, shader, parameters,
 			'uniform mat4 viewMatrix;',
 			'uniform vec3 cameraPosition;',
 
+			renderer.vr.multiview ? [ // For VR multiview
+
+				'uniform vec3 cameraPosition2;',
+
+				'#define cameraPosition (gl_ViewID_OVR==0u?cameraPosition:cameraPosition2)'
+
+			].join( '\n' ) : '',
+
 			( parameters.toneMapping !== NoToneMapping ) ? '#define TONE_MAPPING' : '',
 			( parameters.toneMapping !== NoToneMapping ) ? ShaderChunk[ 'tonemapping_pars_fragment' ] : '', // this code is required here because it is used by the toneMapping() function defined below
 			( parameters.toneMapping !== NoToneMapping ) ? getToneMappingFunction( 'toneMapping', parameters.toneMapping ) : '',
@@ -17467,6 +17595,14 @@ function WebGLProgram( renderer, extensions, code, material, shader, parameters,
 		// GLSL 3.0 conversion
 		prefixVertex = [
 			'#version 300 es\n',
+
+			renderer.vr.multiview ? [ // For VR multiview
+
+				'#extension GL_OVR_multiview : require',
+				'layout(num_views = 2) in;'
+
+			].join( '\n' ) : '',
+
 			'#define attribute in',
 			'#define varying out',
 			'#define texture2D texture'
@@ -20990,6 +21126,16 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			}
 
+			// if ( window.ImageBitmap && texture.image instanceof ImageBitmap ) {
+
+			// 	console.info( "upload texture", "ImageBitmap", texture.id );
+
+			// } else if ( texture.image instanceof HTMLImageElement ) {
+
+			// 	console.info( "upload texture", "HTMLImageElement", texture.id, texture.image.src );
+
+			// }
+
 		}
 
 		if ( textureNeedsGenerateMipmaps( texture, supportsMips ) ) {
@@ -22053,6 +22199,21 @@ function WebVRManager( renderer ) {
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
 
+	// Multiview with opaque framebuffer approach
+
+	this.multiview = false;
+
+	var multiviewAvailability = null;
+
+	function checkMultiviewAvailability() {
+
+		if ( ! device.getViews ) return false;
+
+		var views = device.getViews();
+		return !! views && views.length === 1 && !! views[ 0 ].getAttributes().multiview;
+
+	}
+
 	//
 
 	function isPresenting() {
@@ -22079,6 +22240,16 @@ function WebVRManager( renderer ) {
 			cameraL.viewport.set( 0, 0, renderWidth / 2, renderHeight );
 			cameraR.viewport.set( renderWidth / 2, 0, renderWidth / 2, renderHeight );
 
+			multiviewAvailability = checkMultiviewAvailability();
+
+			if ( multiviewAvailability ) {
+
+				renderer.setFramebuffer( device.getViews()[ 0 ].framebuffer );
+				renderer.setRenderTarget( renderer.getRenderTarget() );
+
+			}
+
+			renderer.animation.stop();
 			animation.start();
 
 			scope.dispatchEvent( { type: 'sessionstart' } );
@@ -22089,9 +22260,17 @@ function WebVRManager( renderer ) {
 
 				renderer.setDrawingBufferSize( currentSize.width, currentSize.height, currentPixelRatio );
 
+				if ( multiviewAvailability ) {
+
+					renderer.setFramebuffer( null );
+					renderer.setRenderTarget( renderer.getRenderTarget() );
+
+				}
+
 			}
 
 			animation.stop();
+			renderer.animation.start();
 
 			scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -22433,10 +22612,13 @@ function WebXRManager( renderer ) {
 
 	var session = null;
 
+	var framebufferScaleFactor = 1.0;
+
 	var referenceSpace = null;
 	var referenceSpaceType = 'local-floor';
 
 	var pose = null;
+	var poseTarget = null;
 
 	var controllers = [];
 	var inputSources = [];
@@ -22460,6 +22642,10 @@ function WebXRManager( renderer ) {
 	var cameraVR = new ArrayCamera( [ cameraL, cameraR ] );
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
+
+	// Multiview with opaque framebuffer approach
+
+	this.multiview = false;
 
 	//
 
@@ -22504,6 +22690,7 @@ function WebXRManager( renderer ) {
 		renderer.setFramebuffer( null );
 		renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830
 		animation.stop();
+		renderer.animation.start();
 
 		scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -22521,6 +22708,8 @@ function WebXRManager( renderer ) {
 	}
 
 	this.setFramebufferScaleFactor = function ( value ) {
+
+		framebufferScaleFactor = value;
 
 	};
 
@@ -22547,7 +22736,7 @@ function WebXRManager( renderer ) {
 			session.addEventListener( 'selectend', onSessionEvent );
 			session.addEventListener( 'end', onSessionEnd );
 
-			session.updateRenderState( { baseLayer: new XRWebGLLayer( session, gl ) } );
+			session.updateRenderState( { baseLayer: new XRWebGLLayer( session, gl, { framebufferScaleFactor: framebufferScaleFactor, multiview: this.multiview } ) } );
 
 			session.requestReferenceSpace( referenceSpaceType ).then( onRequestReferenceSpace );
 
@@ -22589,12 +22778,19 @@ function WebXRManager( renderer ) {
 
 	}
 
+	this.setPoseTarget = function ( object ) {
+
+		if ( object !== undefined ) poseTarget = object;
+
+	};
+
 	this.getCamera = function ( camera ) {
 
 		if ( isPresenting() ) {
 
 			var parent = camera.parent;
 			var cameras = cameraVR.cameras;
+			var object = poseTarget || camera;
 
 			updateCamera( cameraVR, parent );
 
@@ -22605,10 +22801,9 @@ function WebXRManager( renderer ) {
 			}
 
 			// update camera and its children
+			object.matrixWorld.copy( cameraVR.matrixWorld );
 
-			camera.matrixWorld.copy( cameraVR.matrixWorld );
-
-			var children = camera.children;
+			var children = object.children;
 
 			for ( var i = 0, l = children.length; i < l; i ++ ) {
 
@@ -22623,6 +22818,12 @@ function WebXRManager( renderer ) {
 		}
 
 		return camera;
+
+	};
+
+	this.getCameraPose = function ( ) {
+
+		return pose;
 
 	};
 
@@ -22692,7 +22893,7 @@ function WebXRManager( renderer ) {
 
 		}
 
-		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time );
+		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time, frame );
 
 	}
 
@@ -22951,6 +23152,8 @@ function WebGLRenderer( parameters ) {
 
 	var utils;
 
+	var videoTextures;
+
 	function initGLContext() {
 
 		extensions = new WebGLExtensions( _gl );
@@ -22995,6 +23198,8 @@ function WebGLRenderer( parameters ) {
 
 		info.programs = programCache.programs;
 
+		videoTextures = [];
+
 		_this.context = _gl;
 		_this.capabilities = capabilities;
 		_this.extensions = extensions;
@@ -23018,6 +23223,16 @@ function WebGLRenderer( parameters ) {
 	var shadowMap = new WebGLShadowMap( _this, objects, capabilities.maxTextureSize );
 
 	this.shadowMap = shadowMap;
+
+	// For right eye in VR multiview
+
+	var multiview = {
+		inProgress: false,
+		modelViewMatrix: new Matrix4(),
+		normalMatrix: new Matrix3(),
+		projectionMatrix: new Matrix4(),
+		camera: null
+	};
 
 	// API
 
@@ -23705,6 +23920,57 @@ function WebGLRenderer( parameters ) {
 
 	}
 
+	this.compileAndUploadMaterials = function ( scene, camera ) {
+
+		currentRenderState = renderStates.get( scene, camera );
+		currentRenderState.init();
+
+		scene.traverse( function ( object ) {
+
+			if ( object.isLight ) {
+
+				currentRenderState.pushLight( object );
+
+			}
+
+			if ( object.castShadow ) {
+
+				currentRenderState.pushShadow( object );
+
+			}
+
+		} );
+
+		currentRenderState.setupLights( camera );
+
+		scene.traverse( function ( object ) {
+
+			if ( object.material ) {
+
+				if ( Array.isArray( object.material ) ) {
+
+					for ( var i = 0; i < object.material.length; i ++ ) {
+
+						state.setMaterial( object.material[ i ] );
+						setProgram( camera, scene.fog, object.material[ i ], object );
+
+					}
+
+				} else {
+
+					state.setMaterial( object.material );
+					setProgram( camera, scene.fog, object.material, object );
+
+				}
+
+			}
+
+		} );
+
+		currentRenderState = null;
+
+	};
+
 	// Compile
 
 	this.compile = function ( scene, camera ) {
@@ -23760,13 +24026,13 @@ function WebGLRenderer( parameters ) {
 
 	function onAnimationFrame( time ) {
 
-		if ( vr.isPresenting() ) return;
 		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time );
 
 	}
 
 	var animation = new WebGLAnimation();
 	animation.setAnimationLoop( onAnimationFrame );
+	this.animation = animation;
 
 	if ( typeof window !== 'undefined' ) animation.setContext( window );
 
@@ -23781,11 +24047,11 @@ function WebGLRenderer( parameters ) {
 
 	// Rendering
 
-	this.render = function ( scene, camera ) {
+	this.render = function ( scene, camera, renderTarget, forceClear ) {
 
 		var renderTarget, forceClear;
 
-		if ( arguments[ 2 ] !== undefined ) {
+		/*if ( arguments[ 2 ] !== undefined ) {
 
 			console.warn( 'THREE.WebGLRenderer.render(): the renderTarget argument has been removed. Use .setRenderTarget() instead.' );
 			renderTarget = arguments[ 2 ];
@@ -23797,7 +24063,7 @@ function WebGLRenderer( parameters ) {
 			console.warn( 'THREE.WebGLRenderer.render(): the forceClear argument has been removed. Use .clear() instead.' );
 			forceClear = arguments[ 3 ];
 
-		}
+		}*/
 
 		if ( ! ( camera && camera.isCamera ) ) {
 
@@ -23846,6 +24112,8 @@ function WebGLRenderer( parameters ) {
 		currentRenderList = renderLists.get( scene, camera );
 		currentRenderList.init();
 
+		videoTextures.length = 0;
+
 		projectObject( scene, camera, 0, _this.sortObjects );
 
 		if ( _this.sortObjects === true ) {
@@ -23873,6 +24141,17 @@ function WebGLRenderer( parameters ) {
 		if ( renderTarget !== undefined ) {
 
 			this.setRenderTarget( renderTarget );
+
+		}
+
+		// Pre-upload all video textures on Oculus Browser
+		if ( parameters.preuploadVideos ) {
+
+			for ( var i = 0, l = videoTextures.length; i < l; i ++ ) {
+
+				textures.setTexture2D( videoTextures[ i ], 0 );
+
+			}
 
 		}
 
@@ -24037,6 +24316,12 @@ function WebGLRenderer( parameters ) {
 
 					} else if ( material.visible ) {
 
+						if ( parameters.preuploadVideos && material.map && material.map.isVideoTexture ) {
+
+							videoTextures.push( material.map );
+
+						}
+
 						currentRenderList.push( object, geometry, material, groupOrder, _vector3.z, null );
 
 					}
@@ -24074,6 +24359,44 @@ function WebGLRenderer( parameters ) {
 
 				var cameras = camera.cameras;
 
+				// Multiview with opaque framebuffer approach
+
+				if ( vr.multiview && ! capabilities.multiview ) {
+
+					console.warn( 'WebGLRenderer: Use WebGL 2.0 and WEBGL/OVR_multiview extension support browser for VR multiview with opaque framebuffer approach.' );
+					vr.multiview = false;
+
+				}
+
+				if ( vr.multiview ) {
+
+					multiview.camera = cameras[ 1 ];
+
+					multiview.inProgress = true;
+
+					if ( 'viewport' in cameras[ 0 ] ) { // WebXR
+
+						state.viewport( _currentViewport.copy( cameras[ 0 ].viewport ) );
+
+					} else {
+
+						var viewport = vr.getDevice().getViews()[ 0 ].getViewport();
+						state.viewport( _currentViewport.set( viewport.x, viewport.y, viewport.width, viewport.height ) );
+
+					}
+
+					currentRenderState.setupLights( multiview.camera );
+					renderObject( object, scene, cameras[ 0 ], geometry, material, group );
+
+					multiview.inProgress = false;
+					multiview.camera = null;
+
+					continue;
+
+				}
+
+				//
+
 				for ( var j = 0, jl = cameras.length; j < jl; j ++ ) {
 
 					var camera2 = cameras[ j ];
@@ -24109,6 +24432,13 @@ function WebGLRenderer( parameters ) {
 
 		object.modelViewMatrix.multiplyMatrices( camera.matrixWorldInverse, object.matrixWorld );
 		object.normalMatrix.getNormalMatrix( object.modelViewMatrix );
+
+		if ( multiview.inProgress ) {
+
+			multiview.modelViewMatrix.multiplyMatrices( multiview.camera.matrixWorldInverse, object.matrixWorld );
+			multiview.normalMatrix.getNormalMatrix( multiview.modelViewMatrix );
+
+		}
 
 		if ( object.isImmediateRenderObject ) {
 
@@ -24381,6 +24711,8 @@ function WebGLRenderer( parameters ) {
 
 			p_uniforms.setValue( _gl, 'projectionMatrix', camera.projectionMatrix );
 
+			if ( multiview.inProgress ) p_uniforms.setValue( _gl, 'projectionMatrix2', multiview.camera.projectionMatrix );
+
 			if ( capabilities.logarithmicDepthBuffer ) {
 
 				p_uniforms.setValue( _gl, 'logDepthBufFC',
@@ -24418,6 +24750,18 @@ function WebGLRenderer( parameters ) {
 
 				}
 
+				if ( multiview.inProgress ) {
+
+					var uCamPos = p_uniforms.map.cameraPosition2;
+
+					if ( uCamPos !== undefined ) {
+
+						uCamPos.setValue( _gl, _vector3.setFromMatrixPosition( multiview.camera.matrixWorld ) );
+
+					}
+
+				}
+
 			}
 
 			if ( material.isMeshPhongMaterial ||
@@ -24428,6 +24772,8 @@ function WebGLRenderer( parameters ) {
 				material.skinning ) {
 
 				p_uniforms.setValue( _gl, 'viewMatrix', camera.matrixWorldInverse );
+
+				if ( multiview.inProgress ) p_uniforms.setValue( _gl, 'viewMatrix2', multiview.camera.matrixWorldInverse );
 
 			}
 
@@ -24628,6 +24974,13 @@ function WebGLRenderer( parameters ) {
 		p_uniforms.setValue( _gl, 'modelViewMatrix', object.modelViewMatrix );
 		p_uniforms.setValue( _gl, 'normalMatrix', object.normalMatrix );
 		p_uniforms.setValue( _gl, 'modelMatrix', object.matrixWorld );
+
+		if ( multiview.inProgress ) {
+
+			p_uniforms.setValue( _gl, 'modelViewMatrix2', multiview.modelViewMatrix );
+			p_uniforms.setValue( _gl, 'normalMatrix2', multiview.normalMatrix );
+
+		}
 
 		return program;
 
@@ -25817,8 +26170,17 @@ Sprite.prototype = Object.assign( Object.create( Object3D.prototype ), {
 		return function raycast( raycaster, intersects ) {
 
 			worldScale.setFromMatrixScale( this.matrixWorld );
-			viewWorldMatrix.getInverse( this.modelViewMatrix ).premultiply( this.matrixWorld );
+
+			viewWorldMatrix.copy( raycaster._camera.matrixWorld );
+			this.modelViewMatrix.multiplyMatrices( raycaster._camera.matrixWorldInverse, this.matrixWorld );
+
 			mvPosition.setFromMatrixPosition( this.modelViewMatrix );
+
+			if ( raycaster._camera.isPerspectiveCamera && this.material.sizeAttenuation === false ) {
+
+				worldScale.multiplyScalar( - mvPosition.z );
+
+			}
 
 			var rotation = this.material.rotation;
 			var sin, cos;
@@ -35212,9 +35574,125 @@ Object.assign( CubeTextureLoader.prototype, {
 } );
 
 /**
- * @author mrdoob / http://mrdoob.com/
+ * @author thespite / http://clicktorelease.com/
  */
 
+
+function ImageBitmapLoader( manager ) {
+
+	if ( typeof createImageBitmap === 'undefined' ) {
+
+		console.warn( 'THREE.ImageBitmapLoader: createImageBitmap() not supported.' );
+
+	}
+
+	if ( typeof fetch === 'undefined' ) {
+
+		console.warn( 'THREE.ImageBitmapLoader: fetch() not supported.' );
+
+	}
+
+	this.manager = manager !== undefined ? manager : DefaultLoadingManager;
+	this.options = undefined;
+
+}
+
+ImageBitmapLoader.prototype = {
+
+	constructor: ImageBitmapLoader,
+
+	setOptions: function setOptions( options ) {
+
+		this.options = options;
+
+		return this;
+
+	},
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		if ( url === undefined ) url = '';
+
+		if ( this.path !== undefined ) url = this.path + url;
+
+		url = this.manager.resolveURL( url );
+
+		var scope = this;
+
+		var cached = Cache.get( url );
+
+		if ( cached !== undefined ) {
+
+			scope.manager.itemStart( url );
+
+			setTimeout( function () {
+
+				if ( onLoad ) onLoad( cached );
+
+				scope.manager.itemEnd( url );
+
+			}, 0 );
+
+			return cached;
+
+		}
+
+		fetch( url ).then( function ( res ) {
+
+			return res.blob();
+
+		} ).then( function ( blob ) {
+
+			if ( scope.options === undefined ) {
+
+				// Workaround for FireFox. It causes an error if you pass options.
+				return createImageBitmap( blob );
+
+			} else {
+
+				return createImageBitmap( blob, scope.options );
+
+			}
+
+		} ).then( function ( imageBitmap ) {
+
+			Cache.add( url, imageBitmap );
+
+			if ( onLoad ) onLoad( imageBitmap );
+
+			scope.manager.itemEnd( url );
+
+		} ).catch( function ( e ) {
+
+			if ( onError ) onError( e );
+
+			scope.manager.itemError( url );
+			scope.manager.itemEnd( url );
+
+		} );
+
+		scope.manager.itemStart( url );
+
+	},
+
+	setCrossOrigin: function ( /* value */ ) {
+
+		return this;
+
+	},
+
+	setPath: function ( value ) {
+
+		this.path = value;
+		return this;
+
+	}
+
+};
+
+/**
+ * @author mrdoob / http://mrdoob.com/
+ */
 
 function TextureLoader( manager ) {
 
@@ -35230,11 +35708,26 @@ Object.assign( TextureLoader.prototype, {
 
 		var texture = new Texture();
 
-		var loader = new ImageLoader( this.manager );
+		var loader;
+		if ( window.createImageBitmap !== undefined ) {
+
+			loader = new ImageBitmapLoader( this.manager );
+			texture.flipY = false;
+
+		} else {
+
+			loader = new ImageLoader( this.manager );
+
+		}
+
 		loader.setCrossOrigin( this.crossOrigin );
 		loader.setPath( this.path );
 
+		const cacheKey = this.manager.resolveURL( url );
 		loader.load( url, function ( image ) {
+
+			// Image was just added to cache before this function gets called, disable caching by immediatly removing it
+			Cache.remove( cacheKey );
 
 			texture.image = image;
 
@@ -35243,6 +35736,13 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.format = isJPEG ? RGBFormat : RGBAFormat;
 			texture.needsUpdate = true;
+
+			texture.onUpdate = function () {
+
+				texture.image.close && texture.image.close();
+				delete texture.image;
+
+			};
 
 			if ( onLoad !== undefined ) {
 
@@ -39341,123 +39841,6 @@ var TEXTURE_FILTER = {
 	LinearFilter: LinearFilter,
 	LinearMipMapNearestFilter: LinearMipMapNearestFilter,
 	LinearMipMapLinearFilter: LinearMipMapLinearFilter
-};
-
-/**
- * @author thespite / http://clicktorelease.com/
- */
-
-
-function ImageBitmapLoader( manager ) {
-
-	if ( typeof createImageBitmap === 'undefined' ) {
-
-		console.warn( 'THREE.ImageBitmapLoader: createImageBitmap() not supported.' );
-
-	}
-
-	if ( typeof fetch === 'undefined' ) {
-
-		console.warn( 'THREE.ImageBitmapLoader: fetch() not supported.' );
-
-	}
-
-	this.manager = manager !== undefined ? manager : DefaultLoadingManager;
-	this.options = undefined;
-
-}
-
-ImageBitmapLoader.prototype = {
-
-	constructor: ImageBitmapLoader,
-
-	setOptions: function setOptions( options ) {
-
-		this.options = options;
-
-		return this;
-
-	},
-
-	load: function ( url, onLoad, onProgress, onError ) {
-
-		if ( url === undefined ) url = '';
-
-		if ( this.path !== undefined ) url = this.path + url;
-
-		url = this.manager.resolveURL( url );
-
-		var scope = this;
-
-		var cached = Cache.get( url );
-
-		if ( cached !== undefined ) {
-
-			scope.manager.itemStart( url );
-
-			setTimeout( function () {
-
-				if ( onLoad ) onLoad( cached );
-
-				scope.manager.itemEnd( url );
-
-			}, 0 );
-
-			return cached;
-
-		}
-
-		fetch( url ).then( function ( res ) {
-
-			return res.blob();
-
-		} ).then( function ( blob ) {
-
-			if ( scope.options === undefined ) {
-
-				// Workaround for FireFox. It causes an error if you pass options.
-				return createImageBitmap( blob );
-
-			} else {
-
-				return createImageBitmap( blob, scope.options );
-
-			}
-
-		} ).then( function ( imageBitmap ) {
-
-			Cache.add( url, imageBitmap );
-
-			if ( onLoad ) onLoad( imageBitmap );
-
-			scope.manager.itemEnd( url );
-
-		} ).catch( function ( e ) {
-
-			if ( onError ) onError( e );
-
-			scope.manager.itemError( url );
-			scope.manager.itemEnd( url );
-
-		} );
-
-		scope.manager.itemStart( url );
-
-	},
-
-	setCrossOrigin: function ( /* value */ ) {
-
-		return this;
-
-	},
-
-	setPath: function ( value ) {
-
-		this.path = value;
-		return this;
-
-	}
-
 };
 
 /**
@@ -44497,11 +44880,13 @@ Object.assign( Raycaster.prototype, {
 
 			this.ray.origin.setFromMatrixPosition( camera.matrixWorld );
 			this.ray.direction.set( coords.x, coords.y, 0.5 ).unproject( camera ).sub( this.ray.origin ).normalize();
+			this._camera = camera;
 
 		} else if ( ( camera && camera.isOrthographicCamera ) ) {
 
 			this.ray.origin.set( coords.x, coords.y, ( camera.near + camera.far ) / ( camera.near - camera.far ) ).unproject( camera ); // set origin in plane of camera
 			this.ray.direction.set( 0, 0, - 1 ).transformDirection( camera.matrixWorld );
+			this._camera = camera;
 
 		} else {
 

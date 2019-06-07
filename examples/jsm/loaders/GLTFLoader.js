@@ -78,6 +78,7 @@ var GLTFLoader = ( function () {
 
 		this.manager = ( manager !== undefined ) ? manager : DefaultLoadingManager;
 		this.dracoLoader = null;
+		this.revokeObjectURLs = true;
 
 	}
 
@@ -88,6 +89,52 @@ var GLTFLoader = ( function () {
 		crossOrigin: 'anonymous',
 
 		load: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, false );
+
+		},
+
+		setCrossOrigin: function ( value ) {
+
+			this.crossOrigin = value;
+			return this;
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
+
+		},
+
+		setResourcePath: function ( value ) {
+
+			this.resourcePath = value;
+			return this;
+
+		},
+
+		setDRACOLoader: function ( dracoLoader ) {
+
+			this.dracoLoader = dracoLoader;
+			return this;
+
+		},
+
+		parse: function ( data, path, onLoad, onError ) {
+
+			this._parse( data, path, onLoad, onError, false );
+
+		},
+
+		createParser: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, true );
+
+		},
+
+		_load: function ( url, onLoad, onProgress, onError, parserOnly ) {
 
 			var scope = this;
 
@@ -144,13 +191,13 @@ var GLTFLoader = ( function () {
 
 				try {
 
-					scope.parse( data, resourcePath, function ( gltf ) {
+					scope._parse( data, resourcePath, function ( gltf ) {
 
 						onLoad( gltf );
 
 						scope.manager.itemEnd( url );
 
-					}, _onError );
+					}, _onError, parserOnly );
 
 				} catch ( e ) {
 
@@ -162,35 +209,7 @@ var GLTFLoader = ( function () {
 
 		},
 
-		setCrossOrigin: function ( value ) {
-
-			this.crossOrigin = value;
-			return this;
-
-		},
-
-		setPath: function ( value ) {
-
-			this.path = value;
-			return this;
-
-		},
-
-		setResourcePath: function ( value ) {
-
-			this.resourcePath = value;
-			return this;
-
-		},
-
-		setDRACOLoader: function ( dracoLoader ) {
-
-			this.dracoLoader = dracoLoader;
-			return this;
-
-		},
-
-		parse: function ( data, path, onLoad, onError ) {
+		_parse: function ( data, path, onLoad, onError, parserOnly ) {
 
 			var content;
 			var extensions = {};
@@ -286,9 +305,18 @@ var GLTFLoader = ( function () {
 
 				path: path || this.resourcePath || '',
 				crossOrigin: this.crossOrigin,
-				manager: this.manager
+				manager: this.manager,
+				revokeObjectURLs: this.revokeObjectURLs
 
 			} );
+
+			if ( parserOnly ) {
+
+				// parser.markDefs();
+				onLoad( parser );
+				return;
+
+			}
 
 			parser.parse( onLoad, onError );
 
@@ -1590,7 +1618,9 @@ var GLTFLoader = ( function () {
 
 		this.json = json || {};
 		this.extensions = extensions || {};
-		this.options = options || {};
+		this.options = options || {
+			revokeObjectURLs: true
+		};
 
 		// loader object cache
 		this.cache = new GLTFRegistry();
@@ -1645,6 +1675,8 @@ var GLTFLoader = ( function () {
 			addUnknownExtensionsToUserData( extensions, result, json );
 
 			onLoad( result );
+
+			parser.cache.removeAll();
 
 		} ).catch( onError );
 
@@ -2075,7 +2107,7 @@ var GLTFLoader = ( function () {
 
 			// Clean up resources and configure Texture.
 
-			if ( isObjectURL === true ) {
+			if ( isObjectURL === true && options.revokeObjectURLs ) {
 
 				URL.revokeObjectURL( sourceURI );
 
@@ -2613,7 +2645,7 @@ var GLTFLoader = ( function () {
 							? new SkinnedMesh( geometry, material )
 							: new Mesh( geometry, material );
 
-						if ( mesh.isSkinnedMesh === true && !mesh.geometry.attributes.skinWeight.normalized ) {
+						if ( mesh.isSkinnedMesh === true && ! mesh.geometry.attributes.skinWeight.normalized ) {
 
 							// we normalize floating point skin weight array to fix malformed assets (see #15319)
 							// it's important to skip this for non-float32 data since normalizeSkinWeights assumes non-normalized inputs
@@ -2901,7 +2933,7 @@ var GLTFLoader = ( function () {
 
 					for ( var j = 0, jl = outputArray.length; j < jl; j ++ ) {
 
-						scaled[j] = outputArray[j] * scale;
+						scaled[ j ] = outputArray[ j ] * scale;
 
 					}
 
