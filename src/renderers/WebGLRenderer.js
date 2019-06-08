@@ -1478,7 +1478,7 @@ function WebGLRenderer( parameters ) {
 
 					multiview.inProgress = true;
 
-					if ( 'viewport' in cameras[ 0 ] ) { // WebXR
+					if ( 'getSession' in vr ) { // WebXR
 
 						state.viewport( _currentViewport.copy( cameras[ 0 ].viewport ) );
 
