@@ -24374,7 +24374,7 @@ function WebGLRenderer( parameters ) {
 
 					multiview.inProgress = true;
 
-					if ( 'viewport' in cameras[ 0 ] ) { // WebXR
+					if ( 'getSession' in vr ) { // WebXR
 
 						state.viewport( _currentViewport.copy( cameras[ 0 ].viewport ) );
 
@@ -35574,123 +35574,6 @@ Object.assign( CubeTextureLoader.prototype, {
 } );
 
 /**
- * @author thespite / http://clicktorelease.com/
- */
-
-
-function ImageBitmapLoader( manager ) {
-
-	if ( typeof createImageBitmap === 'undefined' ) {
-
-		console.warn( 'THREE.ImageBitmapLoader: createImageBitmap() not supported.' );
-
-	}
-
-	if ( typeof fetch === 'undefined' ) {
-
-		console.warn( 'THREE.ImageBitmapLoader: fetch() not supported.' );
-
-	}
-
-	this.manager = manager !== undefined ? manager : DefaultLoadingManager;
-	this.options = undefined;
-
-}
-
-ImageBitmapLoader.prototype = {
-
-	constructor: ImageBitmapLoader,
-
-	setOptions: function setOptions( options ) {
-
-		this.options = options;
-
-		return this;
-
-	},
-
-	load: function ( url, onLoad, onProgress, onError ) {
-
-		if ( url === undefined ) url = '';
-
-		if ( this.path !== undefined ) url = this.path + url;
-
-		url = this.manager.resolveURL( url );
-
-		var scope = this;
-
-		var cached = Cache.get( url );
-
-		if ( cached !== undefined ) {
-
-			scope.manager.itemStart( url );
-
-			setTimeout( function () {
-
-				if ( onLoad ) onLoad( cached );
-
-				scope.manager.itemEnd( url );
-
-			}, 0 );
-
-			return cached;
-
-		}
-
-		fetch( url ).then( function ( res ) {
-
-			return res.blob();
-
-		} ).then( function ( blob ) {
-
-			if ( scope.options === undefined ) {
-
-				// Workaround for FireFox. It causes an error if you pass options.
-				return createImageBitmap( blob );
-
-			} else {
-
-				return createImageBitmap( blob, scope.options );
-
-			}
-
-		} ).then( function ( imageBitmap ) {
-
-			Cache.add( url, imageBitmap );
-
-			if ( onLoad ) onLoad( imageBitmap );
-
-			scope.manager.itemEnd( url );
-
-		} ).catch( function ( e ) {
-
-			if ( onError ) onError( e );
-
-			scope.manager.itemError( url );
-			scope.manager.itemEnd( url );
-
-		} );
-
-		scope.manager.itemStart( url );
-
-	},
-
-	setCrossOrigin: function ( /* value */ ) {
-
-		return this;
-
-	},
-
-	setPath: function ( value ) {
-
-		this.path = value;
-		return this;
-
-	}
-
-};
-
-/**
  * @author mrdoob / http://mrdoob.com/
  */
 
@@ -35708,26 +35591,12 @@ Object.assign( TextureLoader.prototype, {
 
 		var texture = new Texture();
 
-		var loader;
-		if ( window.createImageBitmap !== undefined ) {
-
-			loader = new ImageBitmapLoader( this.manager );
-			texture.flipY = false;
-
-		} else {
-
-			loader = new ImageLoader( this.manager );
-
-		}
+		var loader = new ImageLoader( this.manager );
 
 		loader.setCrossOrigin( this.crossOrigin );
 		loader.setPath( this.path );
 
-		const cacheKey = this.manager.resolveURL( url );
 		loader.load( url, function ( image ) {
-
-			// Image was just added to cache before this function gets called, disable caching by immediatly removing it
-			Cache.remove( cacheKey );
 
 			texture.image = image;
 
@@ -35736,13 +35605,6 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.format = isJPEG ? RGBFormat : RGBAFormat;
 			texture.needsUpdate = true;
-
-			texture.onUpdate = function () {
-
-				texture.image.close && texture.image.close();
-				delete texture.image;
-
-			};
 
 			if ( onLoad !== undefined ) {
 
@@ -39841,6 +39703,123 @@ var TEXTURE_FILTER = {
 	LinearFilter: LinearFilter,
 	LinearMipMapNearestFilter: LinearMipMapNearestFilter,
 	LinearMipMapLinearFilter: LinearMipMapLinearFilter
+};
+
+/**
+ * @author thespite / http://clicktorelease.com/
+ */
+
+
+function ImageBitmapLoader( manager ) {
+
+	if ( typeof createImageBitmap === 'undefined' ) {
+
+		console.warn( 'THREE.ImageBitmapLoader: createImageBitmap() not supported.' );
+
+	}
+
+	if ( typeof fetch === 'undefined' ) {
+
+		console.warn( 'THREE.ImageBitmapLoader: fetch() not supported.' );
+
+	}
+
+	this.manager = manager !== undefined ? manager : DefaultLoadingManager;
+	this.options = undefined;
+
+}
+
+ImageBitmapLoader.prototype = {
+
+	constructor: ImageBitmapLoader,
+
+	setOptions: function setOptions( options ) {
+
+		this.options = options;
+
+		return this;
+
+	},
+
+	load: function ( url, onLoad, onProgress, onError ) {
+
+		if ( url === undefined ) url = '';
+
+		if ( this.path !== undefined ) url = this.path + url;
+
+		url = this.manager.resolveURL( url );
+
+		var scope = this;
+
+		var cached = Cache.get( url );
+
+		if ( cached !== undefined ) {
+
+			scope.manager.itemStart( url );
+
+			setTimeout( function () {
+
+				if ( onLoad ) onLoad( cached );
+
+				scope.manager.itemEnd( url );
+
+			}, 0 );
+
+			return cached;
+
+		}
+
+		fetch( url ).then( function ( res ) {
+
+			return res.blob();
+
+		} ).then( function ( blob ) {
+
+			if ( scope.options === undefined ) {
+
+				// Workaround for FireFox. It causes an error if you pass options.
+				return createImageBitmap( blob );
+
+			} else {
+
+				return createImageBitmap( blob, scope.options );
+
+			}
+
+		} ).then( function ( imageBitmap ) {
+
+			Cache.add( url, imageBitmap );
+
+			if ( onLoad ) onLoad( imageBitmap );
+
+			scope.manager.itemEnd( url );
+
+		} ).catch( function ( e ) {
+
+			if ( onError ) onError( e );
+
+			scope.manager.itemError( url );
+			scope.manager.itemEnd( url );
+
+		} );
+
+		scope.manager.itemStart( url );
+
+	},
+
+	setCrossOrigin: function ( /* value */ ) {
+
+		return this;
+
+	},
+
+	setPath: function ( value ) {
+
+		this.path = value;
+		return this;
+
+	}
+
 };
 
 /**
