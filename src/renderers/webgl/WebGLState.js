@@ -312,6 +312,9 @@ function WebGLState( gl, extensions, utils ) {
 	var depthBuffer = new DepthBuffer();
 	var stencilBuffer = new StencilBuffer();
 
+	var uboBindings = new WeakMap();
+	var uboProgamMap = new WeakMap();
+
 	var enabledCapabilities = {};
 
 	var compressedTextureFormats = null;
@@ -839,6 +842,49 @@ function WebGLState( gl, extensions, utils ) {
 
 	//
 
+	function updateUBOMapping( uniformsGroup, program ) {
+
+		var mapping = uboProgamMap.get( program );
+
+		if ( mapping === undefined ) {
+
+			mapping = new WeakMap();
+
+			uboProgamMap.set( program, mapping );
+
+		}
+
+		var blockIndex = mapping.get( uniformsGroup );
+
+		if ( blockIndex === undefined ) {
+
+			blockIndex = gl.getUniformBlockIndex( program, uniformsGroup.name );
+
+			mapping.set( uniformsGroup, blockIndex );
+
+		}
+
+	}
+
+	function uniformBlockBinding( uniformsGroup, program ) {
+
+		var mapping = uboProgamMap.get( program );
+		var blockIndex = mapping.get( uniformsGroup );
+
+		if ( uboBindings.get( uniformsGroup ) !== blockIndex ) {
+
+			// bind shader specific block index to global block point
+
+			gl.uniformBlockBinding( program, blockIndex, uniformsGroup.__bindingPointIndex );
+
+			uboBindings.set( uniformsGroup, blockIndex );
+
+		}
+
+	}
+
+	//
+
 	function reset() {
 
 		enabledCapabilities = {};
@@ -894,6 +940,9 @@ function WebGLState( gl, extensions, utils ) {
 
 		scissor: scissor,
 		viewport: viewport,
+
+		updateUBOMapping: updateUBOMapping,
+		uniformBlockBinding: uniformBlockBinding,
 
 		reset: reset
 
