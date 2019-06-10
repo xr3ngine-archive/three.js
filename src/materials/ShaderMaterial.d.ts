@@ -1,3 +1,4 @@
+import { UniformsGroup } from '../core/UniformsGroup';
 import { ShaderMaterialParameters } from './ShaderMaterial';
 import { IUniform } from '../renderers/shaders/UniformsLib';
 import { MaterialParameters, Material } from './Material';
@@ -15,6 +16,7 @@ import { MaterialParameters, Material } from './Material';
 export interface ShaderMaterialParameters extends MaterialParameters {
 	defines?: any;
 	uniforms?: any;
+	uniformsGroups?: UniformsGroup[];
 	vertexShader?: string;
 	fragmentShader?: string;
 	linewidth?: number;
@@ -33,6 +35,7 @@ export class ShaderMaterial extends Material {
 
 	defines: any;
 	uniforms: { [uniform: string]: IUniform };
+	uniformsGroups: UniformsGroup[];
 	vertexShader: string;
 	fragmentShader: string;
 	linewidth: number;
@@ -43,9 +46,10 @@ export class ShaderMaterial extends Material {
 	skinning: boolean;
 	morphTargets: boolean;
 	morphNormals: boolean;
+
 	/**
-   * @deprecated Use {@link ShaderMaterial#extensions.derivatives extensions.derivatives} instead.
-   */
+	 * @deprecated Use {@link ShaderMaterial#extensions.derivatives extensions.derivatives} instead.
+	 */
 	derivatives: any;
 	extensions: {
 		derivatives: boolean;

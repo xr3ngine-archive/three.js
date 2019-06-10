@@ -40,6 +40,7 @@ import { WebGLRenderStates } from './webgl/WebGLRenderStates.js';
 import { WebGLShadowMap } from './webgl/WebGLShadowMap.js';
 import { WebGLState } from './webgl/WebGLState.js';
 import { WebGLTextures } from './webgl/WebGLTextures.js';
+import { WebGLUniformsGroups } from './webgl/WebGLUniformsGroups.js';
 import { WebGLUniforms } from './webgl/WebGLUniforms.js';
 import { WebGLUtils } from './webgl/WebGLUtils.js';
 import { WebVRManager } from './webvr/WebVRManager.js';
@@ -250,7 +251,7 @@ function WebGLRenderer( parameters ) {
 
 	var extensions, capabilities, state, info;
 	var properties, textures, attributes, geometries, objects;
-	var programCache, renderLists, renderStates;
+	var programCache, renderLists, renderStates, uniformsGroups;
 
 	var background, morphtargets, bufferRenderer, indexedBufferRenderer;
 
@@ -294,6 +295,7 @@ function WebGLRenderer( parameters ) {
 		programCache = new WebGLPrograms( _this, extensions, capabilities, textures );
 		renderLists = new WebGLRenderLists();
 		renderStates = new WebGLRenderStates();
+		uniformsGroups = new WebGLUniformsGroups( _gl, info, capabilities, state );
 
 		background = new WebGLBackground( _this, state, objects, _premultipliedAlpha );
 
@@ -587,6 +589,7 @@ function WebGLRenderer( parameters ) {
 		renderStates.dispose();
 		properties.dispose();
 		objects.dispose();
+		uniformsGroups.dispose();
 
 		vr.dispose();
 
@@ -1630,6 +1633,7 @@ function WebGLRenderer( parameters ) {
 				materialProperties.shader = {
 					name: material.type,
 					uniforms: material.uniforms,
+					uniformsGroups: material.uniformsGroups,
 					vertexShader: material.vertexShader,
 					fragmentShader: material.fragmentShader
 				};
@@ -2083,6 +2087,32 @@ function WebGLRenderer( parameters ) {
 
 			p_uniforms.setValue( _gl, 'modelViewMatrix2', multiview.modelViewMatrix );
 			p_uniforms.setValue( _gl, 'normalMatrix2', multiview.normalMatrix );
+
+		}
+
+		// UBOs
+
+		if ( material.isShaderMaterial || material.isRawShaderMaterial ) {
+
+			var groups = materialProperties.shader.uniformsGroups;
+			var webglProgram = materialProperties.program.program;
+
+			for ( var i = 0, l = groups.length; i < l; i ++ ) {
+
+				if ( capabilities.isWebGL2 ) {
+
+					var group = groups[ i ];
+
+					uniformsGroups.update( group, webglProgram );
+					uniformsGroups.bind( group, webglProgram );
+
+				} else {
+
+					console.warn( 'THREE.WebGLRenderer: Uniform Buffer Objects can only be used with WebGL 2.' );
+
+				}
+
+			}
 
 		}
 
