@@ -22301,7 +22301,7 @@ function WebGLUniformsGroups( gl, info, capabilities, state ) {
 
 				gl.bindBuffer( 35345, buffer );
 
-				gl.bufferSubData( 35345, 0, uniform.data );
+				gl.bufferSubData( 35345, 0, uniformsGroup.data );
 
 				gl.bindBuffer( 35345, null );
 
