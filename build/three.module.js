@@ -18228,8 +18228,8 @@ function WebGLProgram( renderer, extensions, code, material, shader, parameters,
 
 		if ( material.isRawShaderMaterial ) {
 
-			prefixVertex = "#version 300 es\n";
-			prefixFragment = "#version 300 es\n";
+			prefixVertex = "#version 300 es\n\n" + prefixVertex;
+			prefixFragment = "#version 300 es\n\n" + prefixFragment;
 
 		} else {
 
