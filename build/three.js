@@ -45794,6 +45794,55 @@
 	} );
 
 	/**
+	 * @author robertlong / https://github.com/robertlong
+	 */
+
+	function RawUniformsGroup( data ) {
+
+		UniformsGroup.call( this );
+
+		this.data = data;
+		this.autoUpdate = true;
+		this.needsUpdate = false;
+
+	}
+
+	RawUniformsGroup.prototype = Object.assign( Object.create( UniformsGroup.prototype ), {
+
+		constructor: RawUniformsGroup,
+
+		isRawUniformsGroup: true,
+
+		add: function ( _uniform ) {
+
+			console.warn( 'THREE.RawUniformsGroup: .add() is unimplemented. Modify .data manually instead.' );
+
+			return this;
+
+		},
+
+		remove: function ( uniform ) {
+
+			console.warn( 'THREE.RawUniformsGroup: .add() is unimplemented. Modify .data manually instead.' );
+
+			return this;
+
+		},
+
+		copy: function ( source ) {
+
+			UniformsGroup.prototype.copy.call( this );
+
+			this.autoUpdate = source.autoUpdate;
+			this.data = data.slice( 0 );
+
+			return this;
+
+		}
+
+	} );
+
+	/**
 	 * @author benaadams / https://twitter.com/ben_a_adams
 	 */
 
@@ -50469,6 +50518,7 @@
 	exports.RGB_PVRTC_4BPPV1_Format = RGB_PVRTC_4BPPV1_Format;
 	exports.RGB_S3TC_DXT1_Format = RGB_S3TC_DXT1_Format;
 	exports.RawShaderMaterial = RawShaderMaterial;
+	exports.RawUniformsGroup = RawUniformsGroup;
 	exports.Ray = Ray;
 	exports.Raycaster = Raycaster;
 	exports.RectAreaLight = RectAreaLight;
