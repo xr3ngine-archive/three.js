@@ -18215,7 +18215,7 @@
 		vertexShader = unrollLoops( vertexShader );
 		fragmentShader = unrollLoops( fragmentShader );
 
-		if ( capabilities.isWebGL2 && ! material.isRawShaderMaterial ) {
+		if ( capabilities.isWebGL2 ) {
 
 			var isGLSL3ShaderMaterial = false;
 
@@ -18232,38 +18232,47 @@
 
 			}
 
-			// GLSL 3.0 conversion
-			prefixVertex = [
-				'#version 300 es\n',
+			if ( material.isRawShaderMaterial ) {
 
-				renderer.vr.multiview ? [ // For VR multiview
+				prefixVertex = "#version 300 es\n";
+				prefixFragment = "#version 300 es\n";
 
-					'#extension GL_OVR_multiview : require',
-					'layout(num_views = 2) in;'
+			} else {
 
-				].join( '\n' ) : '',
+				// GLSL 3.0 conversion
+				prefixVertex = [
+					'#version 300 es\n',
 
-				'#define attribute in',
-				'#define varying out',
-				'#define texture2D texture'
-			].join( '\n' ) + '\n' + prefixVertex;
+					renderer.vr.multiview ? [ // For VR multiview
 
-			prefixFragment = [
-				'#version 300 es\n',
-				'#define varying in',
-				isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-				isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-				'#define gl_FragDepthEXT gl_FragDepth',
-				'#define texture2D texture',
-				'#define textureCube texture',
-				'#define texture2DProj textureProj',
-				'#define texture2DLodEXT textureLod',
-				'#define texture2DProjLodEXT textureProjLod',
-				'#define textureCubeLodEXT textureLod',
-				'#define texture2DGradEXT textureGrad',
-				'#define texture2DProjGradEXT textureProjGrad',
-				'#define textureCubeGradEXT textureGrad'
-			].join( '\n' ) + '\n' + prefixFragment;
+						'#extension GL_OVR_multiview : require',
+						'layout(num_views = 2) in;'
+
+					].join( '\n' ) : '',
+
+					'#define attribute in',
+					'#define varying out',
+					'#define texture2D texture'
+				].join( '\n' ) + '\n' + prefixVertex;
+
+				prefixFragment = [
+					'#version 300 es\n',
+					'#define varying in',
+					isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
+					isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
+					'#define gl_FragDepthEXT gl_FragDepth',
+					'#define texture2D texture',
+					'#define textureCube texture',
+					'#define texture2DProj textureProj',
+					'#define texture2DLodEXT textureLod',
+					'#define texture2DProjLodEXT textureProjLod',
+					'#define textureCubeLodEXT textureLod',
+					'#define texture2DGradEXT textureGrad',
+					'#define texture2DProjGradEXT textureProjGrad',
+					'#define textureCubeGradEXT textureGrad'
+				].join( '\n' ) + '\n' + prefixFragment;
+
+			}
 
 		}
 
