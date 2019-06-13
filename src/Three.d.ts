@@ -85,6 +85,7 @@ export * from './animation/AnimationClip';
 export * from './animation/AnimationAction';
 export * from './core/Uniform';
 export * from './core/UniformsGroup';
+export * from './core/RawUniformsGroup';
 export * from './core/InstancedBufferGeometry';
 export * from './core/BufferGeometry';
 export * from './core/Geometry';

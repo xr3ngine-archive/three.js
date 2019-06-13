@@ -57,7 +57,7 @@ function WebGLUniformsGroups( gl, info, capabilities, state ) {
 		uniformsGroup.__bindingPointIndex = bindingPointIndex;
 
 		var buffer = gl.createBuffer();
-		var size = uniformsGroup.__size;
+		var size = uniformsGroup.isRawUniformsGroup ? uniformsGroup.data.byteLength : uniformsGroup.__size;
 		var usage = uniformsGroup.dynamic ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW;
 
 		gl.bindBuffer( gl.UNIFORM_BUFFER, buffer );
@@ -93,6 +93,22 @@ function WebGLUniformsGroups( gl, info, capabilities, state ) {
 		var buffer = buffers[ uniformsGroup.id ];
 		var uniforms = uniformsGroup.uniforms;
 		var cache = uniformsGroup.__cache;
+
+		if ( uniformsGroup.isRawUniformsGroup ) {
+
+			if ( uniformsGroup.autoUpdate || uniformsGroup.needsUpdate ) {
+
+				gl.bindBuffer( gl.UNIFORM_BUFFER, buffer );
+
+				gl.bufferSubData( gl.UNIFORM_BUFFER, 0, uniform.data );
+
+				gl.bindBuffer( gl.UNIFORM_BUFFER, null );
+
+			}
+
+			return;
+
+		}
 
 		gl.bindBuffer( gl.UNIFORM_BUFFER, buffer );
 
@@ -205,6 +221,12 @@ function WebGLUniformsGroups( gl, info, capabilities, state ) {
 
 		// determine total buffer size according to the STD140 layout
 		// Hint: STD140 is the only supported layout in WebGL 2
+
+		if ( uniformsGroup.isRawUniformsGroup ) {
+
+			return this;
+
+		}
 
 		var uniforms = uniformsGroup.uniforms;
 
