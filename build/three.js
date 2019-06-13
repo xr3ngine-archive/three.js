@@ -21708,7 +21708,7 @@
 			uniformsGroup.__bindingPointIndex = bindingPointIndex;
 
 			var buffer = gl.createBuffer();
-			var size = uniformsGroup.__size;
+			var size = uniformsGroup.isRawUniformsGroup ? uniformsGroup.data.byteLength : uniformsGroup.__size;
 			var usage = uniformsGroup.dynamic ? 35048 : 35044;
 
 			gl.bindBuffer( 35345, buffer );
@@ -21744,6 +21744,22 @@
 			var buffer = buffers[ uniformsGroup.id ];
 			var uniforms = uniformsGroup.uniforms;
 			var cache = uniformsGroup.__cache;
+
+			if ( uniformsGroup.isRawUniformsGroup ) {
+
+				if ( uniformsGroup.autoUpdate || uniformsGroup.needsUpdate ) {
+
+					gl.bindBuffer( 35345, buffer );
+
+					gl.bufferSubData( 35345, 0, uniform.data );
+
+					gl.bindBuffer( 35345, null );
+
+				}
+
+				return;
+
+			}
 
 			gl.bindBuffer( 35345, buffer );
 
@@ -21856,6 +21872,12 @@
 
 			// determine total buffer size according to the STD140 layout
 			// Hint: STD140 is the only supported layout in WebGL 2
+
+			if ( uniformsGroup.isRawUniformsGroup ) {
+
+				return this;
+
+			}
 
 			var uniforms = uniformsGroup.uniforms;
 
