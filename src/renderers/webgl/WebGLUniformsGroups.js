@@ -100,7 +100,7 @@ function WebGLUniformsGroups( gl, info, capabilities, state ) {
 
 				gl.bindBuffer( gl.UNIFORM_BUFFER, buffer );
 
-				gl.bufferSubData( gl.UNIFORM_BUFFER, 0, uniform.data );
+				gl.bufferSubData( gl.UNIFORM_BUFFER, 0, uniformsGroup.data );
 
 				gl.bindBuffer( gl.UNIFORM_BUFFER, null );
 
