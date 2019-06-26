@@ -606,8 +606,13 @@ function WebGLProgram( renderer, extensions, code, material, shader, parameters,
 
 		if ( material.isRawShaderMaterial ) {
 
-			prefixVertex = "#version 300 es\n\n" + prefixVertex;
-			prefixFragment = "#version 300 es\n\n" + prefixFragment;
+			const v300es = "#version 300 es\n"
+			if(isGLSL3ShaderMaterial) {
+
+				prefixVertex = v300es + prefixVertex;
+				prefixFragment = v300es + prefixFragment;
+
+			}
 
 		} else {
 
