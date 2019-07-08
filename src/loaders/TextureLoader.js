@@ -4,11 +4,8 @@
 
 import { RGBAFormat, RGBFormat } from '../constants.js';
 import { ImageLoader } from './ImageLoader.js';
-import { ImageBitmapLoader } from './ImageBitmapLoader.js';
 import { Texture } from '../textures/Texture.js';
 import { DefaultLoadingManager } from './LoadingManager.js';
-
-import { Cache } from './Cache.js';
 
 function TextureLoader( manager ) {
 
@@ -24,26 +21,12 @@ Object.assign( TextureLoader.prototype, {
 
 		var texture = new Texture();
 
-		var loader;
-		if ( window.createImageBitmap !== undefined ) {
-
-			loader = new ImageBitmapLoader( this.manager );
-			texture.flipY = false;
-
-		} else {
-
-			loader = new ImageLoader( this.manager );
-
-		}
+		var loader = new ImageLoader( this.manager );
 
 		loader.setCrossOrigin( this.crossOrigin );
 		loader.setPath( this.path );
 
-		const cacheKey = this.manager.resolveURL( url );
 		loader.load( url, function ( image ) {
-
-			// Image was just added to cache before this function gets called, disable caching by immediatly removing it
-			Cache.remove( cacheKey );
 
 			texture.image = image;
 
@@ -52,13 +35,6 @@ Object.assign( TextureLoader.prototype, {
 
 			texture.format = isJPEG ? RGBFormat : RGBAFormat;
 			texture.needsUpdate = true;
-
-			texture.onUpdate = function () {
-
-				texture.image.close && texture.image.close();
-				delete texture.image;
-
-			};
 
 			if ( onLoad !== undefined ) {
 
