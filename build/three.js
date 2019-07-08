@@ -6537,6 +6537,20 @@
 
 	}
 
+	function cloneUniformsGroups( src ) {
+
+		var dst = [];
+
+		for ( var u = 0; u < src.length; u ++ ) {
+
+			dst.push( src[ u ].clone() );
+
+		}
+
+		return dst;
+
+	}
+
 	// Legacy
 
 	var UniformsUtils = { clone: cloneUniforms, merge: mergeUniforms };
@@ -10627,23 +10641,79 @@
 
 		this.name = '';
 
-		this.array = array;
-		this.itemSize = itemSize;
+		this._array = array;
+		this._itemSize = itemSize;
 		this.count = array !== undefined ? array.length / itemSize : 0;
-		this.normalized = normalized === true;
+		this._normalized = normalized === true;
 
 		this.dynamic = false;
 		this.updateRange = { offset: 0, count: - 1 };
 
 		this.version = 0;
+		this.versionVAO = 0;
 
 	}
 
-	Object.defineProperty( BufferAttribute.prototype, 'needsUpdate', {
+	Object.defineProperties( BufferAttribute.prototype, {
 
-		set: function ( value ) {
+		needsUpdate: {
 
-			if ( value === true ) this.version ++;
+			set: function ( value ) {
+
+				if ( value === true ) this.version ++;
+
+			}
+
+		},
+
+		array: {
+
+			get: function () {
+
+				return this._array;
+
+			},
+
+			set: function ( value ) {
+
+				this._array = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		itemSize: {
+
+			get: function () {
+
+				return this._itemSize;
+
+			},
+
+			set: function ( value ) {
+
+				this._itemSize = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		normalized: {
+
+			get: function () {
+
+				return this._normalized;
+
+			},
+
+			set: function ( value ) {
+
+				this._normalized = value;
+				this.versionVAO ++;
+
+			}
 
 		}
 
@@ -13313,6 +13383,7 @@
 
 		this.defines = {};
 		this.uniforms = {};
+		this.uniformsGroups = [];
 
 		this.vertexShader = default_vertex;
 		this.fragmentShader = default_fragment;
@@ -13375,6 +13446,7 @@
 		this.vertexShader = source.vertexShader;
 
 		this.uniforms = cloneUniforms( source.uniforms );
+		this.uniformsGroups = cloneUniformsGroups( source.uniformsGroups );
 
 		this.defines = Object.assign( {}, source.defines );
 
@@ -15166,6 +15238,539 @@
 	}
 
 	/**
+	 * @author Mugen87 / https://github.com/Mugen87
+	 * @author Takahiro / https://github.com/takahirox
+	 */
+
+	function WebGLBindingStates( gl, extensions, attributes, capabilities ) {
+
+		var maxVertexAttributes = gl.getParameter( 34921 );
+
+		var extension = capabilities.isWebGL2 ? null : extensions.get( 'OES_vertex_array_object' );
+		var vaoAvailable = capabilities.isWebGL2 || extension !== null;
+
+		var bindingStates = {};
+
+		var defaultState = createBindingState( null );
+		var currentState = defaultState;
+
+		function setup( material, program, geometry, index ) {
+
+			var updateBuffers = false;
+
+			if ( vaoAvailable ) {
+
+				var state = getBindingState( geometry, program, material );
+
+				if ( currentState !== state ) {
+
+					currentState = state;
+					bindVertexArrayObject( currentState.object );
+
+				}
+
+				updateBuffers = needsUpdate( geometry );
+
+				if ( updateBuffers ) saveCache( geometry );
+
+			} else {
+
+				var wireframe = ( material.wireframe === true );
+
+				if ( currentState.geometry !== geometry.id ||
+					currentState.program !== program.id ||
+					currentState.wireframe !== wireframe ) {
+
+					currentState.geometry = geometry.id;
+					currentState.program = program.id;
+					currentState.wireframe = wireframe;
+
+					updateBuffers = true;
+
+				}
+
+			}
+
+			if ( index !== null ) {
+
+				attributes.update( index, 34963 );
+
+			}
+
+			if ( updateBuffers ) {
+
+				setupVertexAttributes( material, program, geometry );
+
+				if ( index !== null ) {
+
+					gl.bindBuffer( 34963, attributes.get( index ).buffer );
+
+				}
+
+			}
+
+		}
+
+		function createVertexArrayObject() {
+
+			if ( capabilities.isWebGL2 ) return gl.createVertexArray();
+
+			return extension.createVertexArrayOES();
+
+		}
+
+		function bindVertexArrayObject( vao ) {
+
+			if ( capabilities.isWebGL2 ) return gl.bindVertexArray( vao );
+
+			return extension.bindVertexArrayOES( vao );
+
+		}
+
+		function deleteVertexArrayObject( vao ) {
+
+			if ( capabilities.isWebGL2 ) return gl.deleteVertexArray( vao );
+
+			return extension.deleteVertexArrayOES( vao );
+
+		}
+
+		function getBindingState( geometry, program, material ) {
+
+			var wireframe = ( material.wireframe === true );
+
+			var programMap = bindingStates[ geometry.id ];
+
+			if ( programMap === undefined ) {
+
+				programMap = {};
+				bindingStates[ geometry.id ] = programMap;
+
+			}
+
+			var stateMap = programMap[ program.id ];
+
+			if ( stateMap === undefined ) {
+
+				stateMap = {};
+				programMap[ program.id ] = stateMap;
+
+			}
+
+			var state = stateMap[ wireframe ];
+
+			if ( state === undefined ) {
+
+				state = createBindingState( createVertexArrayObject() );
+				stateMap[ wireframe ] = state;
+
+			}
+
+			return state;
+
+		}
+
+		function createBindingState( vao ) {
+
+			var newAttributes = [];
+			var enabledAttributes = [];
+			var attributeDivisors = [];
+
+			for ( var i = 0; i < maxVertexAttributes; i ++ ) {
+
+				newAttributes[ i ] = 0;
+				enabledAttributes[ i ] = 0;
+				attributeDivisors[ i ] = 0;
+
+			}
+
+			return {
+
+				// for backward compatibility on non-VAO support browser
+				geometry: null,
+				program: null,
+				wireframe: false,
+
+				newAttributes: newAttributes,
+				enabledAttributes: enabledAttributes,
+				attributeDivisors: attributeDivisors,
+				object: vao,
+				attributes: {}
+
+			};
+
+		}
+
+		// If we sacrifice some BufferGeometry/Attribute API flexibility
+		// needsUpdate() and saveCache() can be much simpler. See #16287
+
+		function needsUpdate( geometry ) {
+
+			var cachedAttributes = currentState.attributes;
+			var geometryAttributes = geometry.attributes;
+
+			if ( Object.keys( cachedAttributes ).length !== Object.keys( geometryAttributes ).length ) return true;
+
+			for ( var key in geometryAttributes ) {
+
+				var cachedAttribute = cachedAttributes[ key ];
+				var geometryAttribute = geometryAttributes[ key ];
+
+				if ( cachedAttribute.attribute !== geometryAttribute ) return true;
+
+				if ( cachedAttribute.version !== geometryAttribute.versionVAO ) return true;
+
+				if ( cachedAttribute.data.buffer !== geometryAttribute.data ) return true;
+
+				if ( geometryAttribute.data &&
+					cachedAttribute.data.version !== geometryAttribute.data.versionVAO ) return true;
+
+			}
+
+			return false;
+
+		}
+
+		function saveCache( geometry ) {
+
+			var cache = {};
+			var attributes = geometry.attributes;
+
+			for ( var key in attributes ) {
+
+				var attribute = attributes[ key ];
+
+				var data = {};
+				data.attribute = attribute;
+				data.version = attribute.versionVAO;
+
+				data.data = {};
+
+				if ( attribute.data ) {
+
+					data.data.buffer = attribute.data;
+					data.data.version = attribute.data.versionVAO;
+
+				}
+
+				cache[ key ] = data;
+
+			}
+
+			currentState.attributes = cache;
+
+		}
+
+		function initAttributes() {
+
+			var newAttributes = currentState.newAttributes;
+
+			for ( var i = 0, il = newAttributes.length; i < il; i ++ ) {
+
+				newAttributes[ i ] = 0;
+
+			}
+
+		}
+
+		function enableAttribute( attribute ) {
+
+			enableAttributeAndDivisor( attribute, 0 );
+
+		}
+
+		function enableAttributeAndDivisor( attribute, meshPerAttribute ) {
+
+			var newAttributes = currentState.newAttributes;
+			var enabledAttributes = currentState.enabledAttributes;
+			var attributeDivisors = currentState.attributeDivisors;
+
+			newAttributes[ attribute ] = 1;
+
+			if ( enabledAttributes[ attribute ] === 0 ) {
+
+				gl.enableVertexAttribArray( attribute );
+				enabledAttributes[ attribute ] = 1;
+
+			}
+
+			if ( attributeDivisors[ attribute ] !== meshPerAttribute ) {
+
+				var extension = capabilities.isWebGL2 ? gl : extensions.get( 'ANGLE_instanced_arrays' );
+
+				extension[ capabilities.isWebGL2 ? 'vertexAttribDivisor' : 'vertexAttribDivisorANGLE' ]( attribute, meshPerAttribute );
+				attributeDivisors[ attribute ] = meshPerAttribute;
+
+			}
+
+		}
+
+		function disableUnusedAttributes() {
+
+			var newAttributes = currentState.newAttributes;
+			var enabledAttributes = currentState.enabledAttributes;
+
+			for ( var i = 0, il = enabledAttributes.length; i < il; i ++ ) {
+
+				if ( enabledAttributes[ i ] !== newAttributes[ i ] ) {
+
+					gl.disableVertexAttribArray( i );
+					enabledAttributes[ i ] = 0;
+
+				}
+
+			}
+
+		}
+
+		function setupVertexAttributes( material, program, geometry ) {
+
+			if ( geometry && geometry.isInstancedBufferGeometry & ! capabilities.isWebGL2 ) {
+
+				if ( extensions.get( 'ANGLE_instanced_arrays' ) === null ) {
+
+					console.error( 'THREE.WebGLRenderer.setupVertexAttributes: using THREE.InstancedBufferGeometry but hardware does not support extension ANGLE_instanced_arrays.' );
+					return;
+
+				}
+
+			}
+
+			initAttributes();
+
+			var geometryAttributes = geometry.attributes;
+
+			var programAttributes = program.getAttributes();
+
+			var materialDefaultAttributeValues = material.defaultAttributeValues;
+
+			for ( var name in programAttributes ) {
+
+				var programAttribute = programAttributes[ name ];
+
+				if ( programAttribute >= 0 ) {
+
+					var geometryAttribute = geometryAttributes[ name ];
+
+					if ( geometryAttribute !== undefined ) {
+
+						var normalized = geometryAttribute.normalized;
+						var size = geometryAttribute.itemSize;
+
+						var attribute = attributes.get( geometryAttribute );
+
+						// TODO Attribute may not be available on context restore
+
+						if ( attribute === undefined ) continue;
+
+						var buffer = attribute.buffer;
+						var type = attribute.type;
+						var bytesPerElement = attribute.bytesPerElement;
+
+						if ( geometryAttribute.isInterleavedBufferAttribute ) {
+
+							var data = geometryAttribute.data;
+							var stride = data.stride;
+							var offset = geometryAttribute.offset;
+
+							if ( data && data.isInstancedInterleavedBuffer ) {
+
+								enableAttributeAndDivisor( programAttribute, data.meshPerAttribute );
+
+								if ( geometry.maxInstancedCount === undefined ) {
+
+									geometry.maxInstancedCount = data.meshPerAttribute * data.count;
+
+								}
+
+							} else {
+
+								enableAttribute( programAttribute );
+
+							}
+
+							gl.bindBuffer( 34962, buffer );
+							gl.vertexAttribPointer( programAttribute, size, type, normalized, stride * bytesPerElement, offset * bytesPerElement );
+
+						} else {
+
+							if ( geometryAttribute.isInstancedBufferAttribute ) {
+
+								enableAttributeAndDivisor( programAttribute, geometryAttribute.meshPerAttribute );
+
+								if ( geometry.maxInstancedCount === undefined ) {
+
+									geometry.maxInstancedCount = geometryAttribute.meshPerAttribute * geometryAttribute.count;
+
+								}
+
+							} else {
+
+								enableAttribute( programAttribute );
+
+							}
+
+							gl.bindBuffer( 34962, buffer );
+							gl.vertexAttribPointer( programAttribute, size, type, normalized, 0, 0 );
+
+						}
+
+					} else if ( materialDefaultAttributeValues !== undefined ) {
+
+						var value = materialDefaultAttributeValues[ name ];
+
+						if ( value !== undefined ) {
+
+							switch ( value.length ) {
+
+								case 2:
+									gl.vertexAttrib2fv( programAttribute, value );
+									break;
+
+								case 3:
+									gl.vertexAttrib3fv( programAttribute, value );
+									break;
+
+								case 4:
+									gl.vertexAttrib4fv( programAttribute, value );
+									break;
+
+								default:
+									gl.vertexAttrib1fv( programAttribute, value );
+
+							}
+
+						}
+
+					}
+
+				}
+
+			}
+
+			disableUnusedAttributes();
+
+		}
+
+		function dispose() {
+
+			reset();
+
+			for ( var geometryId in bindingStates ) {
+
+				var programMap = bindingStates[ geometryId ];
+
+				for ( var programId in programMap ) {
+
+					var stateMap = programMap[ programId ];
+
+					for ( var wireframe in stateMap ) {
+
+						deleteVertexArrayObject( stateMap[ wireframe ].object );
+
+						delete stateMap[ wireframe ];
+
+					}
+
+					delete programMap[ programId ];
+
+				}
+
+				delete bindingStates[ geometryId ];
+
+			}
+
+		}
+
+		function releaseStatesOfGeometry( geometry ) {
+
+			if ( bindingStates[ geometry.id ] === undefined ) return;
+
+			var programMap = bindingStates[ geometry.id ];
+
+			for ( var programId in programMap ) {
+
+				var stateMap = programMap[ programId ];
+
+				for ( var wireframe in stateMap ) {
+
+					deleteVertexArrayObject( stateMap[ wireframe ].object );
+
+					delete stateMap[ wireframe ];
+
+				}
+
+				delete programMap[ programId ];
+
+			}
+
+			delete bindingStates[ geometry.id ];
+
+		}
+
+		function releaseStatesOfProgram( program ) {
+
+			for ( var geometryId in bindingStates ) {
+
+				var programMap = bindingStates[ geometryId ];
+
+				if ( programMap[ program.id ] === undefined ) continue;
+
+				var stateMap = programMap[ program.id ];
+
+				for ( var wireframe in stateMap ) {
+
+					deleteVertexArrayObject( stateMap[ wireframe ].object );
+
+					delete stateMap[ wireframe ];
+
+				}
+
+				delete programMap[ program.id ];
+
+			}
+
+		}
+
+		function reset() {
+
+			resetDefaultState();
+
+			if ( currentState === defaultState ) return;
+
+			currentState = defaultState;
+			bindVertexArrayObject( currentState.object );
+
+		}
+
+		// for backward-compatilibity
+
+		function resetDefaultState() {
+
+			defaultState.geometry = null;
+			defaultState.program = null;
+			defaultState.wireframe = false;
+
+		}
+
+		return {
+
+			setup: setup,
+			reset: reset,
+			resetDefaultState: resetDefaultState,
+			dispose: dispose,
+			releaseStatesOfGeometry: releaseStatesOfGeometry,
+			releaseStatesOfProgram: releaseStatesOfProgram,
+
+			initAttributes: initAttributes,
+			enableAttribute: enableAttribute,
+			disableUnusedAttributes: disableUnusedAttributes
+
+		};
+
+	}
+
+	/**
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
@@ -15566,7 +16171,7 @@
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLGeometries( gl, attributes, info ) {
+	function WebGLGeometries( gl, attributes, info, bindingStates ) {
 
 		var geometries = {};
 		var wireframeAttributes = {};
@@ -15600,6 +16205,8 @@
 				delete wireframeAttributes[ buffergeometry.id ];
 
 			}
+
+			bindingStates.releaseStatesOfGeometry( geometry );
 
 			//
 
@@ -15641,14 +16248,9 @@
 
 		function update( geometry ) {
 
-			var index = geometry.index;
 			var geometryAttributes = geometry.attributes;
 
-			if ( index !== null ) {
-
-				attributes.update( index, 34963 );
-
-			}
+			// Updating index buffer in VAO now. See WebGLBindingStates.
 
 			for ( var name in geometryAttributes ) {
 
@@ -15721,7 +16323,7 @@
 
 			attribute = new ( arrayMax( indices ) > 65535 ? Uint32BufferAttribute : Uint16BufferAttribute )( indices, 1 );
 
-			attributes.update( attribute, 34963 );
+			// Updating index buffer in VAO now. See WebGLBindingStates
 
 			wireframeAttributes[ geometry.id ] = attribute;
 
@@ -15892,6 +16494,12 @@
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
+	function numericalSort( a, b ) {
+
+		return a[ 0 ] - b[ 0 ];
+
+	}
+
 	function absNumericalSort( a, b ) {
 
 		return Math.abs( b[ 1 ] ) - Math.abs( a[ 1 ] );
@@ -15902,6 +16510,14 @@
 
 		var influencesList = {};
 		var morphInfluences = new Float32Array( 8 );
+
+		var workInfluences = [];
+
+		for ( var i = 0; i < 8; i ++ ) {
+
+			workInfluences[ i ] = [ i, 0 ];
+
+		}
 
 		function update( object, geometry, material, program ) {
 
@@ -15927,24 +16543,6 @@
 
 			}
 
-			var morphTargets = material.morphTargets && geometry.morphAttributes.position;
-			var morphNormals = material.morphNormals && geometry.morphAttributes.normal;
-
-			// Remove current morphAttributes
-
-			for ( var i = 0; i < length; i ++ ) {
-
-				var influence = influences[ i ];
-
-				if ( influence[ 1 ] !== 0 ) {
-
-					if ( morphTargets ) geometry.removeAttribute( 'morphTarget' + i );
-					if ( morphNormals ) geometry.removeAttribute( 'morphNormal' + i );
-
-				}
-
-			}
-
 			// Collect influences
 
 			for ( var i = 0; i < length; i ++ ) {
@@ -15958,30 +16556,66 @@
 
 			influences.sort( absNumericalSort );
 
-			// Add morphAttributes
-
 			for ( var i = 0; i < 8; i ++ ) {
 
-				var influence = influences[ i ];
+				if ( i < length && influences[ i ][ 1 ] ) {
 
-				if ( influence ) {
+					workInfluences[ i ][ 0 ] = influences[ i ][ 0 ];
+					workInfluences[ i ][ 1 ] = influences[ i ][ 1 ];
 
-					var index = influence[ 0 ];
-					var value = influence[ 1 ];
+				} else {
 
-					if ( value ) {
-
-						if ( morphTargets ) geometry.addAttribute( 'morphTarget' + i, morphTargets[ index ] );
-						if ( morphNormals ) geometry.addAttribute( 'morphNormal' + i, morphNormals[ index ] );
-
-						morphInfluences[ i ] = value;
-						continue;
-
-					}
+					workInfluences[ i ][ 0 ] = Number.MAX_SAFE_INTEGER;
+					workInfluences[ i ][ 1 ] = 0;
 
 				}
 
-				morphInfluences[ i ] = 0;
+			}
+
+			workInfluences.sort( numericalSort );
+
+			var morphTargets = material.morphTargets && geometry.morphAttributes.position;
+			var morphNormals = material.morphNormals && geometry.morphAttributes.normal;
+
+			for ( var i = 0; i < 8; i ++ ) {
+
+				var influence = workInfluences[ i ];
+				var index = influence[ 0 ];
+				var value = influence[ 1 ];
+
+				if ( index !== Number.MAX_SAFE_INTEGER && value ) {
+
+					if ( morphTargets && geometry.getAttribute( 'morphTarget' + i ) !== morphTargets[ index ] ) {
+
+						geometry.addAttribute( 'morphTarget' + i, morphTargets[ index ] );
+
+					}
+
+					if ( morphNormals && geometry.getAttribute( 'morphNormal' + i ) !== morphNormals[ index ] ) {
+
+						geometry.addAttribute( 'morphNormal' + i, morphNormals[ index ] );
+
+					}
+
+					morphInfluences[ i ] = value;
+
+				} else {
+
+					if ( morphTargets && geometry.getAttribute( 'morphTarget' + i ) !== undefined ) {
+
+						geometry.removeAttribute( 'morphTarget' + i );
+
+					}
+
+					if ( morphNormals && geometry.getAttribute( 'morphNormal' + i ) !== undefined ) {
+
+						geometry.removeAttribute( 'morphNormal' + i );
+
+					}
+
+					morphInfluences[ i ] = 0;
+
+				}
 
 			}
 
@@ -17230,7 +17864,7 @@
 
 	}
 
-	function WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities, textures ) {
+	function WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities, textures, bindingStates ) {
 
 		var gl = renderer.context;
 
@@ -17581,7 +18215,7 @@
 		vertexShader = unrollLoops( vertexShader );
 		fragmentShader = unrollLoops( fragmentShader );
 
-		if ( capabilities.isWebGL2 && ! material.isRawShaderMaterial ) {
+		if ( capabilities.isWebGL2 ) {
 
 			var isGLSL3ShaderMaterial = false;
 
@@ -17598,38 +18232,52 @@
 
 			}
 
-			// GLSL 3.0 conversion
-			prefixVertex = [
-				'#version 300 es\n',
+			if ( material.isRawShaderMaterial ) {
 
-				renderer.vr.multiview ? [ // For VR multiview
+				const v300es = "#version 300 es\n";
+				if ( isGLSL3ShaderMaterial ) {
 
-					'#extension GL_OVR_multiview : require',
-					'layout(num_views = 2) in;'
+					prefixVertex = v300es + prefixVertex;
+					prefixFragment = v300es + prefixFragment;
 
-				].join( '\n' ) : '',
+				}
 
-				'#define attribute in',
-				'#define varying out',
-				'#define texture2D texture'
-			].join( '\n' ) + '\n' + prefixVertex;
+			} else {
 
-			prefixFragment = [
-				'#version 300 es\n',
-				'#define varying in',
-				isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-				isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-				'#define gl_FragDepthEXT gl_FragDepth',
-				'#define texture2D texture',
-				'#define textureCube texture',
-				'#define texture2DProj textureProj',
-				'#define texture2DLodEXT textureLod',
-				'#define texture2DProjLodEXT textureProjLod',
-				'#define textureCubeLodEXT textureLod',
-				'#define texture2DGradEXT textureGrad',
-				'#define texture2DProjGradEXT textureProjGrad',
-				'#define textureCubeGradEXT textureGrad'
-			].join( '\n' ) + '\n' + prefixFragment;
+				// GLSL 3.0 conversion
+				prefixVertex = [
+					'#version 300 es\n',
+
+					renderer.vr.multiview ? [ // For VR multiview
+
+						'#extension GL_OVR_multiview : require',
+						'layout(num_views = 2) in;'
+
+					].join( '\n' ) : '',
+
+					'#define attribute in',
+					'#define varying out',
+					'#define texture2D texture'
+				].join( '\n' ) + '\n' + prefixVertex;
+
+				prefixFragment = [
+					'#version 300 es\n',
+					'#define varying in',
+					isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
+					isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
+					'#define gl_FragDepthEXT gl_FragDepth',
+					'#define texture2D texture',
+					'#define textureCube texture',
+					'#define texture2DProj textureProj',
+					'#define texture2DLodEXT textureLod',
+					'#define texture2DProjLodEXT textureProjLod',
+					'#define textureCubeLodEXT textureLod',
+					'#define texture2DGradEXT textureGrad',
+					'#define texture2DProjGradEXT textureProjGrad',
+					'#define textureCubeGradEXT textureGrad'
+				].join( '\n' ) + '\n' + prefixFragment;
+
+			}
 
 		}
 
@@ -17759,6 +18407,8 @@
 
 		this.destroy = function () {
 
+			bindingStates.releaseStatesOfProgram( this );
+
 			gl.deleteProgram( program );
 			this.program = undefined;
 
@@ -17807,7 +18457,7 @@
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLPrograms( renderer, extensions, capabilities, textures ) {
+	function WebGLPrograms( renderer, extensions, capabilities, textures, bindingStates ) {
 
 		var programs = [];
 
@@ -18081,7 +18731,7 @@
 
 			if ( program === undefined ) {
 
-				program = new WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities, textures );
+				program = new WebGLProgram( renderer, extensions, code, material, shader, parameters, capabilities, textures, bindingStates );
 				programs.push( program );
 
 			}
@@ -19428,7 +20078,7 @@
 	 * @author mrdoob / http://mrdoob.com/
 	 */
 
-	function WebGLState( gl, extensions, utils, capabilities ) {
+	function WebGLState( gl, extensions, utils ) {
 
 		function ColorBuffer() {
 
@@ -19735,10 +20385,8 @@
 		var depthBuffer = new DepthBuffer();
 		var stencilBuffer = new StencilBuffer();
 
-		var maxVertexAttributes = gl.getParameter( 34921 );
-		var newAttributes = new Uint8Array( maxVertexAttributes );
-		var enabledAttributes = new Uint8Array( maxVertexAttributes );
-		var attributeDivisors = new Uint8Array( maxVertexAttributes );
+		var uboBindings = new WeakMap();
+		var uboProgamMap = new WeakMap();
 
 		var enabledCapabilities = {};
 
@@ -19827,59 +20475,6 @@
 		setBlending( NoBlending );
 
 		//
-
-		function initAttributes() {
-
-			for ( var i = 0, l = newAttributes.length; i < l; i ++ ) {
-
-				newAttributes[ i ] = 0;
-
-			}
-
-		}
-
-		function enableAttribute( attribute ) {
-
-			enableAttributeAndDivisor( attribute, 0 );
-
-		}
-
-		function enableAttributeAndDivisor( attribute, meshPerAttribute ) {
-
-			newAttributes[ attribute ] = 1;
-
-			if ( enabledAttributes[ attribute ] === 0 ) {
-
-				gl.enableVertexAttribArray( attribute );
-				enabledAttributes[ attribute ] = 1;
-
-			}
-
-			if ( attributeDivisors[ attribute ] !== meshPerAttribute ) {
-
-				var extension = capabilities.isWebGL2 ? gl : extensions.get( 'ANGLE_instanced_arrays' );
-
-				extension[ capabilities.isWebGL2 ? 'vertexAttribDivisor' : 'vertexAttribDivisorANGLE' ]( attribute, meshPerAttribute );
-				attributeDivisors[ attribute ] = meshPerAttribute;
-
-			}
-
-		}
-
-		function disableUnusedAttributes() {
-
-			for ( var i = 0, l = enabledAttributes.length; i !== l; ++ i ) {
-
-				if ( enabledAttributes[ i ] !== newAttributes[ i ] ) {
-
-					gl.disableVertexAttribArray( i );
-					enabledAttributes[ i ] = 0;
-
-				}
-
-			}
-
-		}
 
 		function enable( id ) {
 
@@ -20320,18 +20915,50 @@
 
 		//
 
-		function reset() {
+		function updateUBOMapping( uniformsGroup, program ) {
 
-			for ( var i = 0; i < enabledAttributes.length; i ++ ) {
+			var mapping = uboProgamMap.get( program );
 
-				if ( enabledAttributes[ i ] === 1 ) {
+			if ( mapping === undefined ) {
 
-					gl.disableVertexAttribArray( i );
-					enabledAttributes[ i ] = 0;
+				mapping = new WeakMap();
 
-				}
+				uboProgamMap.set( program, mapping );
 
 			}
+
+			var blockIndex = mapping.get( uniformsGroup );
+
+			if ( blockIndex === undefined ) {
+
+				blockIndex = gl.getUniformBlockIndex( program, uniformsGroup.name );
+
+				mapping.set( uniformsGroup, blockIndex );
+
+			}
+
+		}
+
+		function uniformBlockBinding( uniformsGroup, program ) {
+
+			var mapping = uboProgamMap.get( program );
+			var blockIndex = mapping.get( uniformsGroup );
+
+			if ( uboBindings.get( uniformsGroup ) !== blockIndex ) {
+
+				// bind shader specific block index to global block point
+
+				gl.uniformBlockBinding( program, blockIndex, uniformsGroup.__bindingPointIndex );
+
+				uboBindings.set( uniformsGroup, blockIndex );
+
+			}
+
+		}
+
+		//
+
+		function reset() {
 
 			enabledCapabilities = {};
 
@@ -20361,10 +20988,6 @@
 				stencil: stencilBuffer
 			},
 
-			initAttributes: initAttributes,
-			enableAttribute: enableAttribute,
-			enableAttributeAndDivisor: enableAttributeAndDivisor,
-			disableUnusedAttributes: disableUnusedAttributes,
 			enable: enable,
 			disable: disable,
 			getCompressedTextureFormats: getCompressedTextureFormats,
@@ -20390,6 +21013,9 @@
 
 			scissor: scissor,
 			viewport: viewport,
+
+			updateUBOMapping: updateUBOMapping,
+			uniformBlockBinding: uniformBlockBinding,
 
 			reset: reset
 
@@ -21581,6 +22207,400 @@
 
 		this.safeSetTexture2D = safeSetTexture2D;
 		this.safeSetTextureCube = safeSetTextureCube;
+
+	}
+
+	/**
+	 * @author Mugen87 / https://github.com/Mugen87
+	 */
+
+	function WebGLUniformsGroups( gl, info, capabilities, state ) {
+
+		var buffers = {};
+		var updateList = {};
+
+		var allocatedBindingPoints = [];
+		var maxBindingPoints = ( capabilities.isWebGL2 ) ? gl.getParameter( 35375 ) : 0; // binding points are global whereas block indices are per shader program
+
+		function bind( uniformsGroup, program ) {
+
+			state.uniformBlockBinding( uniformsGroup, program );
+
+		}
+
+		function update( uniformsGroup, program ) {
+
+			var buffer = buffers[ uniformsGroup.id ];
+
+			if ( buffer === undefined ) {
+
+				prepareUniformsGroup( uniformsGroup );
+
+				buffer = createBuffer( uniformsGroup );
+				buffers[ uniformsGroup.id ] = buffer;
+
+				uniformsGroup.addEventListener( 'dispose', onUniformsGroupsDispose );
+
+			}
+
+			// ensure to update the binding points/block indices mapping for this program
+
+			state.updateUBOMapping( uniformsGroup, program );
+
+			// update UBO once per frame
+
+			var frame = info.render.frame;
+
+			if ( updateList[ uniformsGroup.id ] !== frame ) {
+
+				updateBufferData( uniformsGroup );
+
+				updateList[ uniformsGroup.id ] = frame;
+
+			}
+
+		}
+
+		function createBuffer( uniformsGroup ) {
+
+			// the setup of an UBO is independent of a particular shader program but global
+
+			var bindingPointIndex = allocateBindingPointIndex();
+			uniformsGroup.__bindingPointIndex = bindingPointIndex;
+
+			var buffer = gl.createBuffer();
+			var size = uniformsGroup.isRawUniformsGroup ? uniformsGroup.data.byteLength : uniformsGroup.__size;
+			var usage = uniformsGroup.dynamic ? 35048 : 35044;
+
+			gl.bindBuffer( 35345, buffer );
+			gl.bufferData( 35345, size, usage );
+			gl.bindBuffer( 35345, null );
+			gl.bindBufferBase( 35345, bindingPointIndex, buffer );
+
+			return buffer;
+
+		}
+
+		function allocateBindingPointIndex() {
+
+			for ( var i = 0; i < maxBindingPoints; i ++ ) {
+
+				if ( allocatedBindingPoints.indexOf( i ) === - 1 ) {
+
+					allocatedBindingPoints.push( i );
+					return i;
+
+				}
+
+			}
+
+			console.error( 'THREE.WebGLRenderer: Maximum number of simultaneously usable uniforms groups reached.' );
+
+			return 0;
+
+		}
+
+		function updateBufferData( uniformsGroup ) {
+
+			var buffer = buffers[ uniformsGroup.id ];
+			var uniforms = uniformsGroup.uniforms;
+			var cache = uniformsGroup.__cache;
+
+			if ( uniformsGroup.isRawUniformsGroup ) {
+
+				if ( uniformsGroup.autoUpdate || uniformsGroup.needsUpdate ) {
+
+					gl.bindBuffer( 35345, buffer );
+
+					gl.bufferSubData( 35345, 0, uniformsGroup.data );
+
+					gl.bindBuffer( 35345, null );
+
+				}
+
+				return;
+
+			}
+
+			gl.bindBuffer( 35345, buffer );
+
+			for ( var i = 0, il = uniforms.length; i < il; i ++ ) {
+
+				var uniform = uniforms[ i ];
+
+				// partly update the buffer if necessary
+
+				if ( hasUniformChanged( uniform, i, cache ) === true ) {
+
+					var value = uniform.value;
+					var offset = uniform.__offset;
+
+					if ( typeof value === 'number' ) {
+
+						uniform.__data[ 0 ] = value;
+						gl.bufferSubData( 35345, offset, uniform.__data );
+
+					} else {
+
+						if ( uniform.value.isMatrix3 ) {
+
+							// manually converting 3x3 to 3x4
+
+							uniform.__data[ 0 ] = uniform.value.elements[ 0 ];
+							uniform.__data[ 1 ] = uniform.value.elements[ 1 ];
+							uniform.__data[ 2 ] = uniform.value.elements[ 2 ];
+							uniform.__data[ 3 ] = uniform.value.elements[ 0 ];
+							uniform.__data[ 4 ] = uniform.value.elements[ 3 ];
+							uniform.__data[ 5 ] = uniform.value.elements[ 4 ];
+							uniform.__data[ 6 ] = uniform.value.elements[ 5 ];
+							uniform.__data[ 7 ] = uniform.value.elements[ 0 ];
+							uniform.__data[ 8 ] = uniform.value.elements[ 6 ];
+							uniform.__data[ 9 ] = uniform.value.elements[ 7 ];
+							uniform.__data[ 10 ] = uniform.value.elements[ 8 ];
+							uniform.__data[ 11 ] = uniform.value.elements[ 0 ];
+
+						} else {
+
+							value.toArray( uniform.__data );
+
+						}
+
+						gl.bufferSubData( 35345, offset, uniform.__data );
+
+					}
+
+				}
+
+			}
+
+			gl.bindBuffer( 35345, null );
+
+		}
+
+		function hasUniformChanged( uniform, index, cache ) {
+
+			var value = uniform.value;
+
+			if ( cache[ index ] === undefined ) {
+
+				// cache entry does not exist so far
+
+				if ( typeof value === 'number' ) {
+
+					cache[ index ] = value;
+
+				} else {
+
+					cache[ index ] = value.clone();
+
+				}
+
+				return true;
+
+			} else {
+
+				// compare current value with cached entry
+
+				if ( typeof value === 'number' ) {
+
+					if ( cache[ index ] !== value ) {
+
+						cache[ index ] = value;
+						return true;
+
+					}
+
+				} else {
+
+					var cachedObject = cache[ index ];
+
+					if ( cachedObject.equals( value ) === false ) {
+
+						cachedObject.copy( value );
+						return true;
+
+					}
+
+				}
+
+			}
+
+			return false;
+
+		}
+
+		function prepareUniformsGroup( uniformsGroup ) {
+
+			// determine total buffer size according to the STD140 layout
+			// Hint: STD140 is the only supported layout in WebGL 2
+
+			if ( uniformsGroup.isRawUniformsGroup ) {
+
+				return this;
+
+			}
+
+			var uniforms = uniformsGroup.uniforms;
+
+			var offset = 0; // global buffer offset in bytes
+			var chunkSize = 16; // size of a chunk in bytes
+			var chunkOffset = 0; // offset within a single chunk in bytes
+
+			for ( var i = 0, l = uniforms.length; i < l; i ++ ) {
+
+				var uniform = uniforms[ i ];
+				var info = getUniformSize( uniform );
+
+				// the following two properties will be used for partial buffer updates
+
+				uniform.__data = new Float32Array( info.storage / Float32Array.BYTES_PER_ELEMENT );
+				uniform.__offset = offset;
+
+				//
+
+				if ( i > 0 ) {
+
+					chunkOffset = offset % chunkSize;
+
+					var remainingSizeInChunk = chunkSize - chunkOffset;
+
+					// check for chunk overflow
+
+					if ( chunkOffset !== 0 && ( remainingSizeInChunk - info.boundary ) < 0 ) {
+
+						// add padding and adjust offset
+
+						offset += ( chunkSize - chunkOffset );
+						uniform.__offset = offset;
+
+					}
+
+				}
+
+				offset += info.storage;
+
+			}
+
+			// ensure correct final padding
+
+			chunkOffset = offset % chunkSize;
+
+			if ( chunkOffset > 0 ) offset += ( chunkSize - chunkOffset );
+
+			//
+
+			uniformsGroup.__size = offset;
+			uniformsGroup.__cache = {};
+
+			return this;
+
+		}
+
+		function getUniformSize( uniform ) {
+
+			var value = uniform.value;
+
+			var info = {
+				boundary: 0, // bytes
+				storage: 0 // bytes
+			};
+
+			// determine sizes according to STD140
+
+			if ( typeof value === 'number' ) {
+
+				// float/int
+
+				info.boundary = 4;
+				info.storage = 4;
+
+			} else if ( value.isVector2 ) {
+
+				// vec2
+
+				info.boundary = 8;
+				info.storage = 8;
+
+			} else if ( value.isVector3 || value.isColor ) {
+
+				// vec3
+
+				info.boundary = 16;
+				info.storage = 12; // evil: vec3 must start on a 16-byte boundary but it only consumes 12 bytes
+
+			} else if ( value.isVector4 ) {
+
+				// vec4
+
+				info.boundary = 16;
+				info.storage = 16;
+
+			} else if ( value.isMatrix3 ) {
+
+				// mat3 (in STD140 a 3x3 matrix is represented as 3x4)
+
+				info.boundary = 48;
+				info.storage = 48;
+
+			} else if ( value.isMatrix4 ) {
+
+				// mat4
+
+				info.boundary = 64;
+				info.storage = 64;
+
+			} else if ( value.isTexture ) {
+
+				console.warn( 'THREE.WebGLRenderer: Texture samplers can not be part of an uniforms group.' );
+
+			} else {
+
+				console.warn( 'THREE.WebGLRenderer: Unsupported uniform value type.', value );
+
+			}
+
+			return info;
+
+		}
+
+		function onUniformsGroupsDispose( event ) {
+
+			var uniformsGroup = event.target;
+
+			uniformsGroup.removeEventListener( 'dispose', onUniformsGroupsDispose );
+
+			var index = allocatedBindingPoints.indexOf( uniformsGroup.__bindingPointIndex );
+			allocatedBindingPoints.splice( index, 1 );
+
+			gl.deleteBuffer( buffers[ uniformsGroup.id ] );
+
+			delete buffers[ uniformsGroup.id ];
+			delete updateList[ uniformsGroup.id ];
+
+		}
+
+		function dispose() {
+
+			for ( var id in buffers ) {
+
+				gl.deleteBuffer( buffers[ id ] );
+
+			}
+
+			allocatedBindingPoints = [];
+			buffers = {};
+			updateList = {};
+
+		}
+
+		return {
+
+			bind: bind,
+			update: update,
+
+			dispose: dispose
+
+		};
 
 	}
 
@@ -23044,14 +24064,6 @@
 			_currentFramebuffer = null,
 			_currentMaterialId = - 1,
 
-			// geometry and program caching
-
-			_currentGeometryProgram = {
-				geometry: null,
-				program: null,
-				wireframe: false
-			},
-
 			_currentCamera = null,
 			_currentArrayCamera = null,
 
@@ -23152,11 +24164,11 @@
 
 		var extensions, capabilities, state, info;
 		var properties, textures, attributes, geometries, objects;
-		var programCache, renderLists, renderStates;
+		var programCache, renderLists, renderStates, uniformsGroups;
 
 		var background, morphtargets, bufferRenderer, indexedBufferRenderer;
 
-		var utils;
+		var utils, bindingStates;
 
 		var videoTextures;
 
@@ -23174,6 +24186,7 @@
 				extensions.get( 'OES_texture_half_float_linear' );
 				extensions.get( 'OES_standard_derivatives' );
 				extensions.get( 'OES_element_index_uint' );
+				extensions.get( 'OES_vertex_array_object' );
 				extensions.get( 'ANGLE_instanced_arrays' );
 
 			}
@@ -23182,7 +24195,7 @@
 
 			utils = new WebGLUtils( _gl, extensions, capabilities );
 
-			state = new WebGLState( _gl, extensions, utils, capabilities );
+			state = new WebGLState( _gl, extensions, utils );
 			state.scissor( _currentScissor.copy( _scissor ).multiplyScalar( _pixelRatio ) );
 			state.viewport( _currentViewport.copy( _viewport ).multiplyScalar( _pixelRatio ) );
 
@@ -23190,12 +24203,14 @@
 			properties = new WebGLProperties();
 			textures = new WebGLTextures( _gl, extensions, state, properties, capabilities, utils, info );
 			attributes = new WebGLAttributes( _gl );
-			geometries = new WebGLGeometries( _gl, attributes, info );
+			bindingStates = new WebGLBindingStates( _gl, extensions, attributes, capabilities );
+			geometries = new WebGLGeometries( _gl, attributes, info, bindingStates );
 			objects = new WebGLObjects( geometries, info );
 			morphtargets = new WebGLMorphtargets( _gl );
-			programCache = new WebGLPrograms( _this, extensions, capabilities, textures );
+			programCache = new WebGLPrograms( _this, extensions, capabilities, textures, bindingStates );
 			renderLists = new WebGLRenderLists();
 			renderStates = new WebGLRenderStates();
+			uniformsGroups = new WebGLUniformsGroups( _gl, info, capabilities, state );
 
 			background = new WebGLBackground( _this, state, objects, _premultipliedAlpha );
 
@@ -23489,6 +24504,8 @@
 			renderStates.dispose();
 			properties.dispose();
 			objects.dispose();
+			bindingStates.dispose();
+			uniformsGroups.dispose();
 
 			vr.dispose();
 
@@ -23567,7 +24584,7 @@
 
 		this.renderBufferImmediate = function ( object, program ) {
 
-			state.initAttributes();
+			bindingStates.initAttributes();
 
 			var buffers = properties.get( object );
 
@@ -23583,7 +24600,7 @@
 				_gl.bindBuffer( 34962, buffers.position );
 				_gl.bufferData( 34962, object.positionArray, 35048 );
 
-				state.enableAttribute( programAttributes.position );
+				bindingStates.enableAttribute( programAttributes.position );
 				_gl.vertexAttribPointer( programAttributes.position, 3, 5126, false, 0, 0 );
 
 			}
@@ -23593,7 +24610,7 @@
 				_gl.bindBuffer( 34962, buffers.normal );
 				_gl.bufferData( 34962, object.normalArray, 35048 );
 
-				state.enableAttribute( programAttributes.normal );
+				bindingStates.enableAttribute( programAttributes.normal );
 				_gl.vertexAttribPointer( programAttributes.normal, 3, 5126, false, 0, 0 );
 
 			}
@@ -23603,7 +24620,7 @@
 				_gl.bindBuffer( 34962, buffers.uv );
 				_gl.bufferData( 34962, object.uvArray, 35048 );
 
-				state.enableAttribute( programAttributes.uv );
+				bindingStates.enableAttribute( programAttributes.uv );
 				_gl.vertexAttribPointer( programAttributes.uv, 2, 5126, false, 0, 0 );
 
 			}
@@ -23613,12 +24630,12 @@
 				_gl.bindBuffer( 34962, buffers.color );
 				_gl.bufferData( 34962, object.colorArray, 35048 );
 
-				state.enableAttribute( programAttributes.color );
+				bindingStates.enableAttribute( programAttributes.color );
 				_gl.vertexAttribPointer( programAttributes.color, 3, 5126, false, 0, 0 );
 
 			}
 
-			state.disableUnusedAttributes();
+			bindingStates.disableUnusedAttributes();
 
 			_gl.drawArrays( 4, 0, object.count );
 
@@ -23634,27 +24651,6 @@
 
 			var program = setProgram( camera, fog, material, object );
 
-			var updateBuffers = false;
-
-			if ( _currentGeometryProgram.geometry !== geometry.id ||
-				_currentGeometryProgram.program !== program.id ||
-				_currentGeometryProgram.wireframe !== ( material.wireframe === true ) ) {
-
-				_currentGeometryProgram.geometry = geometry.id;
-				_currentGeometryProgram.program = program.id;
-				_currentGeometryProgram.wireframe = material.wireframe === true;
-				updateBuffers = true;
-
-			}
-
-			if ( object.morphTargetInfluences ) {
-
-				morphtargets.update( object, geometry, material, program );
-
-				updateBuffers = true;
-
-			}
-
 			//
 
 			var index = geometry.index;
@@ -23668,6 +24664,14 @@
 
 			}
 
+			if ( object.morphTargetInfluences ) {
+
+				morphtargets.update( object, geometry, material, program );
+
+			}
+
+			bindingStates.setup( material, program, geometry, index );
+
 			var attribute;
 			var renderer = bufferRenderer;
 
@@ -23677,18 +24681,6 @@
 
 				renderer = indexedBufferRenderer;
 				renderer.setIndex( attribute );
-
-			}
-
-			if ( updateBuffers ) {
-
-				setupVertexAttributes( material, program, geometry );
-
-				if ( index !== null ) {
-
-					_gl.bindBuffer( 34963, attribute.buffer );
-
-				}
 
 			}
 
@@ -23796,135 +24788,6 @@
 			}
 
 		};
-
-		function setupVertexAttributes( material, program, geometry ) {
-
-			if ( geometry && geometry.isInstancedBufferGeometry && ! capabilities.isWebGL2 ) {
-
-				if ( extensions.get( 'ANGLE_instanced_arrays' ) === null ) {
-
-					console.error( 'THREE.WebGLRenderer.setupVertexAttributes: using THREE.InstancedBufferGeometry but hardware does not support extension ANGLE_instanced_arrays.' );
-					return;
-
-				}
-
-			}
-
-			state.initAttributes();
-
-			var geometryAttributes = geometry.attributes;
-
-			var programAttributes = program.getAttributes();
-
-			var materialDefaultAttributeValues = material.defaultAttributeValues;
-
-			for ( var name in programAttributes ) {
-
-				var programAttribute = programAttributes[ name ];
-
-				if ( programAttribute >= 0 ) {
-
-					var geometryAttribute = geometryAttributes[ name ];
-
-					if ( geometryAttribute !== undefined ) {
-
-						var normalized = geometryAttribute.normalized;
-						var size = geometryAttribute.itemSize;
-
-						var attribute = attributes.get( geometryAttribute );
-
-						// TODO Attribute may not be available on context restore
-
-						if ( attribute === undefined ) continue;
-
-						var buffer = attribute.buffer;
-						var type = attribute.type;
-						var bytesPerElement = attribute.bytesPerElement;
-
-						if ( geometryAttribute.isInterleavedBufferAttribute ) {
-
-							var data = geometryAttribute.data;
-							var stride = data.stride;
-							var offset = geometryAttribute.offset;
-
-							if ( data && data.isInstancedInterleavedBuffer ) {
-
-								state.enableAttributeAndDivisor( programAttribute, data.meshPerAttribute );
-
-								if ( geometry.maxInstancedCount === undefined ) {
-
-									geometry.maxInstancedCount = data.meshPerAttribute * data.count;
-
-								}
-
-							} else {
-
-								state.enableAttribute( programAttribute );
-
-							}
-
-							_gl.bindBuffer( 34962, buffer );
-							_gl.vertexAttribPointer( programAttribute, size, type, normalized, stride * bytesPerElement, offset * bytesPerElement );
-
-						} else {
-
-							if ( geometryAttribute.isInstancedBufferAttribute ) {
-
-								state.enableAttributeAndDivisor( programAttribute, geometryAttribute.meshPerAttribute );
-
-								if ( geometry.maxInstancedCount === undefined ) {
-
-									geometry.maxInstancedCount = geometryAttribute.meshPerAttribute * geometryAttribute.count;
-
-								}
-
-							} else {
-
-								state.enableAttribute( programAttribute );
-
-							}
-
-							_gl.bindBuffer( 34962, buffer );
-							_gl.vertexAttribPointer( programAttribute, size, type, normalized, 0, 0 );
-
-						}
-
-					} else if ( materialDefaultAttributeValues !== undefined ) {
-
-						var value = materialDefaultAttributeValues[ name ];
-
-						if ( value !== undefined ) {
-
-							switch ( value.length ) {
-
-								case 2:
-									_gl.vertexAttrib2fv( programAttribute, value );
-									break;
-
-								case 3:
-									_gl.vertexAttrib3fv( programAttribute, value );
-									break;
-
-								case 4:
-									_gl.vertexAttrib4fv( programAttribute, value );
-									break;
-
-								default:
-									_gl.vertexAttrib1fv( programAttribute, value );
-
-							}
-
-						}
-
-					}
-
-				}
-
-			}
-
-			state.disableUnusedAttributes();
-
-		}
 
 		this.compileAndUploadMaterials = function ( scene, camera ) {
 
@@ -24082,9 +24945,7 @@
 
 			// reset caching for this frame
 
-			_currentGeometryProgram.geometry = null;
-			_currentGeometryProgram.program = null;
-			_currentGeometryProgram.wireframe = false;
+			bindingStates.resetDefaultState();
 			_currentMaterialId = - 1;
 			_currentCamera = null;
 
@@ -24452,9 +25313,7 @@
 
 				var program = setProgram( camera, scene.fog, material, object );
 
-				_currentGeometryProgram.geometry = null;
-				_currentGeometryProgram.program = null;
-				_currentGeometryProgram.wireframe = false;
+				bindingStates.reset();
 
 				renderObjectImmediate( object, program );
 
@@ -24532,6 +25391,7 @@
 					materialProperties.shader = {
 						name: material.type,
 						uniforms: material.uniforms,
+						uniformsGroups: material.uniformsGroups,
 						vertexShader: material.vertexShader,
 						fragmentShader: material.fragmentShader
 					};
@@ -24985,6 +25845,32 @@
 
 				p_uniforms.setValue( _gl, 'modelViewMatrix2', multiview.modelViewMatrix );
 				p_uniforms.setValue( _gl, 'normalMatrix2', multiview.normalMatrix );
+
+			}
+
+			// UBOs
+
+			if ( material.isShaderMaterial || material.isRawShaderMaterial ) {
+
+				var groups = materialProperties.shader.uniformsGroups;
+				var webglProgram = materialProperties.program.program;
+
+				for ( var i = 0, l = groups.length; i < l; i ++ ) {
+
+					if ( capabilities.isWebGL2 ) {
+
+						var group = groups[ i ];
+
+						uniformsGroups.update( group, webglProgram );
+						uniformsGroups.bind( group, webglProgram );
+
+					} else {
+
+						console.warn( 'THREE.WebGLRenderer: Uniform Buffer Objects can only be used with WebGL 2.' );
+
+					}
+
+				}
 
 			}
 
@@ -25795,22 +26681,61 @@
 
 	function InterleavedBuffer( array, stride ) {
 
-		this.array = array;
-		this.stride = stride;
+		this._array = array;
+		this._stride = stride;
 		this.count = array !== undefined ? array.length / stride : 0;
 
 		this.dynamic = false;
 		this.updateRange = { offset: 0, count: - 1 };
 
 		this.version = 0;
+		this.versionVAO = 0;
 
 	}
 
-	Object.defineProperty( InterleavedBuffer.prototype, 'needsUpdate', {
+	Object.defineProperties( InterleavedBuffer.prototype, {
 
-		set: function ( value ) {
+		needsUpdate: {
 
-			if ( value === true ) this.version ++;
+			set: function ( value ) {
+
+				if ( value === true ) this.version ++;
+
+			}
+
+		},
+
+		array: {
+
+			get: function () {
+
+				return this._array;
+
+			},
+
+			set: function ( value ) {
+
+				this._array = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		stride: {
+
+			get: function () {
+
+				return this._stride;
+
+			},
+
+			set: function ( value ) {
+
+				this._stride = value;
+				this.versionVAO ++;
+
+			}
 
 		}
 
@@ -25903,11 +26828,13 @@
 
 	function InterleavedBufferAttribute( interleavedBuffer, itemSize, offset, normalized ) {
 
-		this.data = interleavedBuffer;
-		this.itemSize = itemSize;
-		this.offset = offset;
+		this._data = interleavedBuffer;
+		this._itemSize = itemSize;
+		this._offset = offset;
 
-		this.normalized = normalized === true;
+		this._normalized = normalized === true;
+
+		this.versionVAO = 0;
 
 	}
 
@@ -25928,6 +26855,74 @@
 			get: function () {
 
 				return this.data.array;
+
+			}
+
+		},
+
+		data: {
+
+			get: function () {
+
+				return this._data;
+
+			},
+
+			set: function ( value ) {
+
+				this._data = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		itemSize: {
+
+			get: function () {
+
+				return this._itemSize;
+
+			},
+
+			set: function ( value ) {
+
+				this._itemSize = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		offset: {
+
+			get: function () {
+
+				return this._offset;
+
+			},
+
+			set: function ( value ) {
+
+				this._offset = value;
+				this.versionVAO ++;
+
+			}
+
+		},
+
+		normalized: {
+
+			get: function () {
+
+				return this._normalized;
+
+			},
+
+			set: function ( value ) {
+
+				this._normalized = value;
+				this.versionVAO ++;
 
 			}
 
@@ -38573,7 +39568,9 @@
 
 		BufferAttribute.call( this, array, itemSize, normalized );
 
-		this.meshPerAttribute = meshPerAttribute || 1;
+		this._meshPerAttribute = meshPerAttribute || 1;
+
+		this.versionVAO = 0;
 
 	}
 
@@ -38602,6 +39599,27 @@
 			data.isInstancedBufferAttribute = true;
 
 			return data;
+
+		}
+
+	} );
+
+	Object.defineProperties( InstancedBufferAttribute.prototype, {
+
+		meshPerAttribute: {
+
+			get: function () {
+
+				return this._meshPerAttribute;
+
+			},
+
+			set: function ( value ) {
+
+				this._meshPerAttribute = value;
+				this.versionVAO ++;
+
+			}
 
 		}
 
@@ -44757,6 +45775,139 @@
 	};
 
 	/**
+	 * @author Mugen87 / https://github.com/Mugen87
+	 */
+
+	var id = 0;
+
+	function UniformsGroup() {
+
+		Object.defineProperty( this, 'id', { value: id ++ } );
+
+		this.name = '';
+
+		this.dynamic = false;
+		this.uniforms = [];
+
+	}
+
+	UniformsGroup.prototype = Object.assign( Object.create( EventDispatcher.prototype ), {
+
+		constructor: UniformsGroup,
+
+		isUniformsGroup: true,
+
+		add: function ( uniform ) {
+
+			this.uniforms.push( uniform );
+
+			return this;
+
+		},
+
+		remove: function ( uniform ) {
+
+			var index = this.uniforms.indexOf( uniform );
+
+			if ( index !== - 1 ) this.uniforms.splice( index, 1 );
+
+			return this;
+
+		},
+
+		setName: function ( name ) {
+
+			this.name = name;
+
+			return this;
+
+		},
+
+		dispose: function () {
+
+			this.dispatchEvent( { type: 'dispose' } );
+
+			return this;
+
+		},
+
+		copy: function ( source ) {
+
+			this.name = source.name;
+			this.dynamic = source.dynamic;
+
+			var uniformsSource = source.uniforms;
+
+			this.uniforms.length = 0;
+
+			for ( var i = 0, l = uniformsSource.length; i < l; i ++ ) {
+
+				this.uniforms.push( uniformsSource[ i ].clone() );
+
+			}
+
+			return this;
+
+		},
+
+		clone: function () {
+
+			return new this.constructor().copy( this );
+
+		}
+
+	} );
+
+	/**
+	 * @author robertlong / https://github.com/robertlong
+	 */
+
+	function RawUniformsGroup( data ) {
+
+		UniformsGroup.call( this );
+
+		this.data = data;
+		this.autoUpdate = true;
+		this.needsUpdate = false;
+
+	}
+
+	RawUniformsGroup.prototype = Object.assign( Object.create( UniformsGroup.prototype ), {
+
+		constructor: RawUniformsGroup,
+
+		isRawUniformsGroup: true,
+
+		add: function ( _uniform ) {
+
+			console.warn( 'THREE.RawUniformsGroup: .add() is unimplemented. Modify .data manually instead.' );
+
+			return this;
+
+		},
+
+		remove: function ( _uniform ) {
+
+			console.warn( 'THREE.RawUniformsGroup: .add() is unimplemented. Modify .data manually instead.' );
+
+			return this;
+
+		},
+
+		copy: function ( source ) {
+
+			UniformsGroup.prototype.copy.call( this );
+
+			this.autoUpdate = source.autoUpdate;
+			this.data = source.data.slice( 0 );
+
+			return this;
+
+		}
+
+	} );
+
+	/**
 	 * @author benaadams / https://twitter.com/ben_a_adams
 	 */
 
@@ -44764,7 +45915,9 @@
 
 		InterleavedBuffer.call( this, array, stride );
 
-		this.meshPerAttribute = meshPerAttribute || 1;
+		this._meshPerAttribute = meshPerAttribute || 1;
+
+		this.versionVAO = 0;
 
 	}
 
@@ -44781,6 +45934,27 @@
 			this.meshPerAttribute = source.meshPerAttribute;
 
 			return this;
+
+		}
+
+	} );
+
+	Object.defineProperties( InstancedInterleavedBuffer.prototype, {
+
+		meshPerAttribute: {
+
+			get: function () {
+
+				return this._meshPerAttribute;
+
+			},
+
+			set: function ( value ) {
+
+				this._meshPerAttribute = value;
+				this.versionVAO ++;
+
+			}
 
 		}
 
@@ -49409,6 +50583,7 @@
 	exports.RGB_PVRTC_4BPPV1_Format = RGB_PVRTC_4BPPV1_Format;
 	exports.RGB_S3TC_DXT1_Format = RGB_S3TC_DXT1_Format;
 	exports.RawShaderMaterial = RawShaderMaterial;
+	exports.RawUniformsGroup = RawUniformsGroup;
 	exports.Ray = Ray;
 	exports.Raycaster = Raycaster;
 	exports.RectAreaLight = RectAreaLight;
@@ -49484,6 +50659,7 @@
 	exports.Uint8ClampedBufferAttribute = Uint8ClampedBufferAttribute;
 	exports.Uncharted2ToneMapping = Uncharted2ToneMapping;
 	exports.Uniform = Uniform;
+	exports.UniformsGroup = UniformsGroup;
 	exports.UniformsLib = UniformsLib;
 	exports.UniformsUtils = UniformsUtils;
 	exports.UnsignedByteType = UnsignedByteType;

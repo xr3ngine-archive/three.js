@@ -21,6 +21,7 @@
 
 import { Material } from './Material.js';
 import { cloneUniforms } from '../renderers/shaders/UniformsUtils.js';
+import { cloneUniformsGroups } from '../renderers/shaders/UniformsUtils.js';
 
 import default_vertex from '../renderers/shaders/ShaderChunk/default_vertex.glsl.js';
 import default_fragment from '../renderers/shaders/ShaderChunk/default_fragment.glsl.js';
@@ -33,6 +34,7 @@ function ShaderMaterial( parameters ) {
 
 	this.defines = {};
 	this.uniforms = {};
+	this.uniformsGroups = [];
 
 	this.vertexShader = default_vertex;
 	this.fragmentShader = default_fragment;
@@ -95,6 +97,7 @@ ShaderMaterial.prototype.copy = function ( source ) {
 	this.vertexShader = source.vertexShader;
 
 	this.uniforms = cloneUniforms( source.uniforms );
+	this.uniformsGroups = cloneUniformsGroups( source.uniformsGroups );
 
 	this.defines = Object.assign( {}, source.defines );
 

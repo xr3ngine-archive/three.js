@@ -3,6 +3,7 @@ import { WebGLCapabilities } from './WebGLCapabilities';
 import { WebGLExtensions } from './WebGLExtensions';
 import { Material } from '../../materials/Material';
 import { Vector4 } from '../../math/Vector4';
+import { UniformsGroup } from '../../core/UniformsGroup';
 
 export class WebGLColorBuffer {
 
@@ -123,5 +124,7 @@ export class WebGLState {
 	scissor( scissor: Vector4 ): void;
 	viewport( viewport: Vector4 ): void;
 	reset(): void;
+	updateUBOMapping( uniformsGroup: UniformsGroup, program: any ): void;
+	uniformBlockBinding( uniformsGroup: UniformsGroup, program: any ): void;
 
 }
