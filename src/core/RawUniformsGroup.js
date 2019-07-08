@@ -28,7 +28,7 @@ RawUniformsGroup.prototype = Object.assign( Object.create( UniformsGroup.prototy
 
 	},
 
-	remove: function ( uniform ) {
+	remove: function ( _uniform ) {
 
 		console.warn( 'THREE.RawUniformsGroup: .add() is unimplemented. Modify .data manually instead.' );
 
@@ -41,7 +41,7 @@ RawUniformsGroup.prototype = Object.assign( Object.create( UniformsGroup.prototy
 		UniformsGroup.prototype.copy.call( this );
 
 		this.autoUpdate = source.autoUpdate;
-		this.data = data.slice( 0 );
+		this.data = source.data.slice( 0 );
 
 		return this;
 
