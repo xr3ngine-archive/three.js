@@ -141,6 +141,7 @@ GLTFExporter.prototype = {
 
 			meshes: new Map(),
 			attributes: new Map(),
+			attributesRelative: new Map(),
 			attributesNormalized: new Map(),
 			materials: new Map(),
 			textures: new Map(),
@@ -1274,9 +1275,9 @@ GLTFExporter.prototype = {
 
 						var baseAttribute = geometry.attributes[ attributeName ];
 
-						if ( cachedData.attributes.has( getUID( attribute ) ) ) {
+						if ( cachedData.attributesRelative.has( getUID( attribute ) ) ) {
 
-							target[ gltfAttributeName ] = cachedData.attributes.get( getUID( attribute ) );
+							target[ gltfAttributeName ] = cachedData.attributesRelative.get( getUID( attribute ) );
 							continue;
 
 						}
@@ -1296,7 +1297,7 @@ GLTFExporter.prototype = {
 						}
 
 						target[ gltfAttributeName ] = processAccessor( relativeAttribute, geometry );
-						cachedData.attributes.set( getUID( baseAttribute ), target[ gltfAttributeName ] );
+						cachedData.attributesRelative.set( getUID( baseAttribute ), target[ gltfAttributeName ] );
 
 					}
 

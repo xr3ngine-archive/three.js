@@ -2876,8 +2876,6 @@ var GLTFLoader = ( function () {
 
 				}
 
-				var targetName = node.name ? node.name : node.uuid;
-
 				var interpolation = sampler.interpolation !== undefined ? INTERPOLATION[ sampler.interpolation ] : InterpolateLinear;
 
 				var targetNames = [];
@@ -2889,7 +2887,7 @@ var GLTFLoader = ( function () {
 
 						if ( object.isMesh === true && object.morphTargetInfluences ) {
 
-							targetNames.push( object.name ? object.name : object.uuid );
+							targetNames.push( object.uuid );
 
 						}
 
@@ -2897,7 +2895,7 @@ var GLTFLoader = ( function () {
 
 				} else {
 
-					targetNames.push( targetName );
+					targetNames.push( node.uuid );
 
 				}
 
