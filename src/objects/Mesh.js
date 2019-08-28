@@ -372,8 +372,8 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 						start = Math.max( 0, drawRange.start );
 						end = Math.min( position.count, ( drawRange.start + drawRange.count ) );
 
-						if (this.drawMode === TriangleStripDrawMode) {
-							
+						if ( this.drawMode === TriangleStripDrawMode ) {
+
 							var order = 0;
 
 							for ( i = start, il = end; i < il - 2; i ++ ) {
@@ -396,7 +396,7 @@ Mesh.prototype = Object.assign( Object.create( Object3D.prototype ), {
 							}
 
 						} else {
-							
+
 							for ( i = start, il = end; i < il; i += 3 ) {
 
 								a = i;
