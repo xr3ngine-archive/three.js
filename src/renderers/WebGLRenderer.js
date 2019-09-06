@@ -297,7 +297,6 @@ function WebGLRenderer( parameters ) {
 
 		videoTextures = [];
 
-		_this.context = _gl;
 		_this.capabilities = capabilities;
 		_this.extensions = extensions;
 		_this.properties = properties;
