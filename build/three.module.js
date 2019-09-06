@@ -15654,6 +15654,20 @@ function WebGLBindingStates( gl, extensions, attributes, capabilities ) {
 
 	}
 
+	function getAttributesCount( attributes ) {
+
+		var count = 0;
+
+		for ( var key in attributes ) {
+
+			if ( attributes.hasOwnProperty( key ) ) count ++;
+
+		}
+
+		return count;
+
+	}
+
 	// If we sacrifice some BufferGeometry/Attribute API flexibility
 	// needsUpdate() and saveCache() can be much simpler. See #16287
 
@@ -15662,7 +15676,7 @@ function WebGLBindingStates( gl, extensions, attributes, capabilities ) {
 		var cachedAttributes = currentState.attributes;
 		var geometryAttributes = geometry.attributes;
 
-		if ( Object.keys( cachedAttributes ).length !== Object.keys( geometryAttributes ).length ) return true;
+		if ( currentState.attributesCount !== getAttributesCount( geometryAttributes ) ) return true;
 
 		for ( var key in geometryAttributes ) {
 
@@ -15710,6 +15724,7 @@ function WebGLBindingStates( gl, extensions, attributes, capabilities ) {
 
 		}
 
+		currentState.attributesCount = getAttributesCount( cache );
 		currentState.attributes = cache;
 
 	}
@@ -24285,7 +24300,6 @@ function WebGLRenderer( parameters ) {
 
 		videoTextures = [];
 
-		_this.context = _gl;
 		_this.capabilities = capabilities;
 		_this.extensions = extensions;
 		_this.properties = properties;
