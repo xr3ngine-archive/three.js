@@ -12,6 +12,7 @@ THREE.GLTFLoader = ( function () {
 
 		this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
 		this.dracoLoader = null;
+		this.basisTextureLoader = null;
 		this.revokeObjectURLs = true;
 
 	}
@@ -52,6 +53,13 @@ THREE.GLTFLoader = ( function () {
 		setDRACOLoader: function ( dracoLoader ) {
 
 			this.dracoLoader = dracoLoader;
+			return this;
+
+		},
+
+		setBasisTextureLoader: function ( loader ) {
+
+			this.basisTextureLoader = loader;
 			return this;
 
 		},
@@ -213,6 +221,10 @@ THREE.GLTFLoader = ( function () {
 							extensions[ extensionName ] = new GLTFDracoMeshCompressionExtension( json, this.dracoLoader );
 							break;
 
+						case EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS:
+							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.basisTextureLoader );
+							break;
+
 						case EXTENSIONS.MSFT_TEXTURE_DDS:
 							extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ] = new GLTFTextureDDSExtension();
 							break;
@@ -305,7 +317,8 @@ THREE.GLTFLoader = ( function () {
 		KHR_MATERIALS_PBR_SPECULAR_GLOSSINESS: 'KHR_materials_pbrSpecularGlossiness',
 		KHR_MATERIALS_UNLIT: 'KHR_materials_unlit',
 		KHR_TEXTURE_TRANSFORM: 'KHR_texture_transform',
-		MSFT_TEXTURE_DDS: 'MSFT_texture_dds'
+		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		MOZ_HUBS_TEXTURE_BASIS: "MOZ_HUBS_texture_basis"
 	};
 
 	/**
@@ -509,6 +522,23 @@ THREE.GLTFLoader = ( function () {
 			throw new Error( 'THREE.GLTFLoader: JSON content not found.' );
 
 		}
+
+	}
+
+
+	/**
+	 * Placeholder basis texture loader
+	 */
+	function GLTFHubsBasisTextureExtension( loader ) {
+
+		if ( ! loader ) {
+
+			throw new Error( 'THREE.GLTFLoader: No HubsBasisTextureLoader instance provided.' );
+
+		}
+
+		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS
+		this.basisTextureLoader = loader;
 
 	}
 
@@ -1993,6 +2023,10 @@ THREE.GLTFLoader = ( function () {
 
 			source = json.images[ textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].source ];
 
+		} else if ( textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ] ) {
+
+			source = json.images[ textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].source ];
+
 		} else {
 
 			source = json.images[ textureDef.source ];
@@ -2027,7 +2061,9 @@ THREE.GLTFLoader = ( function () {
 
 				loader = textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ]
 					? parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader
-					: textureLoader;
+					: textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ]
+						? parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader
+						: textureLoader;
 
 			}
 
