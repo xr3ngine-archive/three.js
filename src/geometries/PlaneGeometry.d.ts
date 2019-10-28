@@ -7,7 +7,8 @@ export class PlaneBufferGeometry extends BufferGeometry {
 		width?: number,
 		height?: number,
 		widthSegments?: number,
-		heightSegments?: number
+		heightSegments?: number,
+		flipY?: boolean
 	);
 
 	parameters: {
@@ -15,6 +16,7 @@ export class PlaneBufferGeometry extends BufferGeometry {
 		height: number;
 		widthSegments: number;
 		heightSegments: number;
+		flipY: boolean;
 	};
 
 }
@@ -25,7 +27,8 @@ export class PlaneGeometry extends Geometry {
 		width?: number,
 		height?: number,
 		widthSegments?: number,
-		heightSegments?: number
+		heightSegments?: number,
+		flipY?: boolean
 	);
 
 	parameters: {
@@ -33,6 +36,7 @@ export class PlaneGeometry extends Geometry {
 		height: number;
 		widthSegments: number;
 		heightSegments: number;
+		flipY: boolean;
 	};
 
 }
