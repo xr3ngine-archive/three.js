@@ -2455,6 +2455,9 @@ var GLTFLoader = ( function () {
 			if ( material.emissiveMap ) material.emissiveMap.encoding = sRGBEncoding;
 			if ( material.specularMap ) material.specularMap.encoding = sRGBEncoding;
 
+			// We cannot assume the texture pixel format is RGB if the texture is used for base color and emissive maps
+			if ( material.map && material.map === material.emissiveMap && ( material.transparent || material.alphaTest > 0.0 ) ) material.map.format = RGBAFormat;
+
 			assignExtrasToUserData( material, materialDef );
 
 			if ( materialDef.extensions ) addUnknownExtensionsToUserData( extensions, material, materialDef );
