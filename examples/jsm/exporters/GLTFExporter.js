@@ -12,13 +12,13 @@ import {
 	InterpolateDiscrete,
 	InterpolateLinear,
 	LinearFilter,
-	LinearMipMapLinearFilter,
-	LinearMipMapNearestFilter,
+	LinearMipmapLinearFilter,
+	LinearMipmapNearestFilter,
 	Math as _Math,
 	MirroredRepeatWrapping,
 	NearestFilter,
-	NearestMipMapLinearFilter,
-	NearestMipMapNearestFilter,
+	NearestMipmapLinearFilter,
+	NearestMipmapNearestFilter,
 	PropertyBinding,
 	RGBAFormat,
 	RepeatWrapping,
@@ -62,11 +62,11 @@ var WEBGL_CONSTANTS = {
 var THREE_TO_WEBGL = {};
 
 THREE_TO_WEBGL[ NearestFilter ] = WEBGL_CONSTANTS.NEAREST;
-THREE_TO_WEBGL[ NearestMipMapNearestFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_NEAREST;
-THREE_TO_WEBGL[ NearestMipMapLinearFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_LINEAR;
+THREE_TO_WEBGL[ NearestMipmapNearestFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_NEAREST;
+THREE_TO_WEBGL[ NearestMipmapLinearFilter ] = WEBGL_CONSTANTS.NEAREST_MIPMAP_LINEAR;
 THREE_TO_WEBGL[ LinearFilter ] = WEBGL_CONSTANTS.LINEAR;
-THREE_TO_WEBGL[ LinearMipMapNearestFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_NEAREST;
-THREE_TO_WEBGL[ LinearMipMapLinearFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_LINEAR;
+THREE_TO_WEBGL[ LinearMipmapNearestFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_NEAREST;
+THREE_TO_WEBGL[ LinearMipmapLinearFilter ] = WEBGL_CONSTANTS.LINEAR_MIPMAP_LINEAR;
 
 THREE_TO_WEBGL[ ClampToEdgeWrapping ] = WEBGL_CONSTANTS.CLAMP_TO_EDGE;
 THREE_TO_WEBGL[ RepeatWrapping ] = WEBGL_CONSTANTS.REPEAT;
@@ -79,17 +79,6 @@ var PATH_PROPERTIES = {
 	morphTargetInfluences: 'weights'
 };
 
-var DEFAULT_OPTIONS = {
-	mode: "glb",
-	trs: true,
-	onlyVisible: true,
-	truncateDrawRange: true,
-	animations: [],
-	forceIndices: false,
-	forcePowerOfTwoTextures: false,
-	includeCustomExtensions: false
-};
-
 //------------------------------------------------------------------------------
 // GLTF Exporter
 //------------------------------------------------------------------------------
@@ -100,13 +89,25 @@ GLTFExporter.prototype = {
 	constructor: GLTFExporter,
 
 	/**
-	 * Parse scenes and generate an object containing the glTF JSON, buffers, and images.
+	 * Parse scenes and generate GLTF output
 	 * @param  {Scene or [THREE.Scenes]} input   Scene or Array of THREE.Scenes
 	 * @param  {Function} onDone  Callback on completed
-	 * @param  {Function} onError Callback on error
 	 * @param  {Object} options options
 	 */
-	parseChunks: function ( input, onDone, onError, options ) {
+	parse: function ( input, onDone, options ) {
+
+		var DEFAULT_OPTIONS = {
+			binary: false,
+			trs: false,
+			onlyVisible: true,
+			truncateDrawRange: true,
+			embedImages: true,
+			maxTextureSize: Infinity,
+			animations: [],
+			forceIndices: false,
+			forcePowerOfTwoTextures: false,
+			includeCustomExtensions: false
+		};
 
 		options = Object.assign( {}, DEFAULT_OPTIONS, options );
 
@@ -128,9 +129,6 @@ GLTFExporter.prototype = {
 
 		};
 
-		var outputBuffers = [];
-		var outputImages = [];
-
 		var byteOffset = 0;
 		var buffers = [];
 		var pending = [];
@@ -141,7 +139,6 @@ GLTFExporter.prototype = {
 
 			meshes: new Map(),
 			attributes: new Map(),
-			attributesRelative: new Map(),
 			attributesNormalized: new Map(),
 			materials: new Map(),
 			textures: new Map(),
@@ -181,6 +178,34 @@ GLTFExporter.prototype = {
 				return element === array2[ index ];
 
 			} );
+
+		}
+
+		/**
+		 * Converts a string to an ArrayBuffer.
+		 * @param  {string} text
+		 * @return {ArrayBuffer}
+		 */
+		function stringToArrayBuffer( text ) {
+
+			if ( window.TextEncoder !== undefined ) {
+
+				return new TextEncoder().encode( text ).buffer;
+
+			}
+
+			var array = new Uint8Array( new ArrayBuffer( text.length ) );
+
+			for ( var i = 0, il = text.length; i < il; i ++ ) {
+
+				var value = text.charCodeAt( i );
+
+				// Replacing multi-byte character with space(0x20).
+				array[ i ] = value > 0xFF ? 0x20 : value;
+
+			}
+
+			return array.buffer;
 
 		}
 
@@ -301,17 +326,53 @@ GLTFExporter.prototype = {
 
 		}
 
-		function getFileNameFromUri( uri ) {
+		/**
+		 * Get the required size + padding for a buffer, rounded to the next 4-byte boundary.
+		 * https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#data-alignment
+		 *
+		 * @param {Integer} bufferSize The size the original buffer.
+		 * @returns {Integer} new buffer size with required padding.
+		 *
+		 */
+		function getPaddedBufferSize( bufferSize ) {
 
-			var parts = uri.split( '#' ).shift().split( '?' ).shift().split( '/' ).pop().split( '.' );
+			return Math.ceil( bufferSize / 4 ) * 4;
 
-			if ( parts.length > 1 ) {
+		}
 
-				parts.pop();
+		/**
+		 * Returns a buffer aligned to 4-byte boundary.
+		 *
+		 * @param {ArrayBuffer} arrayBuffer Buffer to pad
+		 * @param {Integer} paddingByte (Optional)
+		 * @returns {ArrayBuffer} The same buffer if it's already aligned to 4-byte boundary or a new buffer
+		 */
+		function getPaddedArrayBuffer( arrayBuffer, paddingByte ) {
+
+			paddingByte = paddingByte || 0;
+
+			var paddedLength = getPaddedBufferSize( arrayBuffer.byteLength );
+
+			if ( paddedLength !== arrayBuffer.byteLength ) {
+
+				var array = new Uint8Array( paddedLength );
+				array.set( new Uint8Array( arrayBuffer ) );
+
+				if ( paddingByte !== 0 ) {
+
+					for ( var i = arrayBuffer.byteLength; i < paddedLength; i ++ ) {
+
+						array[ i ] = paddingByte;
+
+					}
+
+				}
+
+				return array.buffer;
 
 			}
 
-			return parts.join();
+			return arrayBuffer;
 
 		}
 
@@ -462,7 +523,7 @@ GLTFExporter.prototype = {
 
 			}
 
-			var byteLength = GLTFExporter.Utils.getPaddedBufferSize( count * attribute.itemSize * componentSize );
+			var byteLength = getPaddedBufferSize( count * attribute.itemSize * componentSize );
 			var dataView = new DataView( new ArrayBuffer( byteLength ) );
 			var offset = 0;
 
@@ -550,7 +611,7 @@ GLTFExporter.prototype = {
 				reader.readAsArrayBuffer( blob );
 				reader.onloadend = function () {
 
-					var buffer = GLTFExporter.Utils.getPaddedArrayBuffer( reader.result );
+					var buffer = getPaddedArrayBuffer( reader.result );
 
 					var bufferView = {
 						buffer: processBuffer( buffer ),
@@ -678,55 +739,6 @@ GLTFExporter.prototype = {
 
 		}
 
-		function transformImage( image, mimeType, flipY, onError, onDone ) {
-
-			var shouldResize = options.forcePowerOfTwoTextures && ! isPowerOfTwo( image );
-
-
-			if ( ! shouldResize && ! flipY ) {
-
-				fetch( image.src )
-					.then( function ( response ) {
-
-						return response.blob();
-
-					} )
-					.then( onDone )
-					.catch( onError );
-
-				return;
-
-			}
-
-			var canvas = cachedCanvas = cachedCanvas || document.createElement( 'canvas' );
-
-			canvas.width = image.width;
-			canvas.height = image.height;
-
-			if ( shouldResize ) {
-
-				console.warn( 'GLTFExporter: Resized non-power-of-two image.', image );
-
-				canvas.width = _Math.floorPowerOfTwo( canvas.width );
-				canvas.height = _Math.floorPowerOfTwo( canvas.height );
-
-			}
-
-			var ctx = canvas.getContext( '2d' );
-
-			if ( flipY === true ) {
-
-				ctx.translate( 0, canvas.height );
-				ctx.scale( 1, - 1 );
-
-			}
-
-			ctx.drawImage( image, 0, 0, canvas.width, canvas.height );
-
-			canvas.toBlob( onDone, mimeType );
-
-		}
-
 		/**
 		 * Process image
 		 * @param  {Image} image to process
@@ -759,48 +771,67 @@ GLTFExporter.prototype = {
 			}
 
 			var gltfImage = { mimeType: mimeType };
-			var index = outputJSON.images.length;
 
-			if ( options.mode === "glb" ) {
+			if ( options.embedImages ) {
 
-				pending.push( new Promise( function ( resolve, reject ) {
+				var canvas = cachedCanvas = cachedCanvas || document.createElement( 'canvas' );
 
-					transformImage( image, mimeType, flipY, reject, function ( blob ) {
+				canvas.width = Math.min( image.width, options.maxTextureSize );
+				canvas.height = Math.min( image.height, options.maxTextureSize );
 
-						processBufferViewImage( blob ).then( function ( bufferViewIndex ) {
+				if ( options.forcePowerOfTwoTextures && ! isPowerOfTwo( canvas ) ) {
 
-							gltfImage.bufferView = bufferViewIndex;
+					console.warn( 'GLTFExporter: Resized non-power-of-two image.', image );
 
-							resolve();
+					canvas.width = _Math.floorPowerOfTwo( canvas.width );
+					canvas.height = _Math.floorPowerOfTwo( canvas.height );
 
-						} ).catch( reject );
+				}
 
-					} );
+				var ctx = canvas.getContext( '2d' );
 
-				} ) );
+				if ( flipY === true ) {
+
+					ctx.translate( 0, canvas.height );
+					ctx.scale( 1, - 1 );
+
+				}
+
+				ctx.drawImage( image, 0, 0, canvas.width, canvas.height );
+
+				if ( options.binary === true ) {
+
+					pending.push( new Promise( function ( resolve ) {
+
+						canvas.toBlob( function ( blob ) {
+
+							processBufferViewImage( blob ).then( function ( bufferViewIndex ) {
+
+								gltfImage.bufferView = bufferViewIndex;
+
+								resolve();
+
+							} );
+
+						}, mimeType );
+
+					} ) );
+
+				} else {
+
+					gltfImage.uri = canvas.toDataURL( mimeType );
+
+				}
 
 			} else {
 
-				var fileName = getFileNameFromUri( image.src );
-				var extension = mimeType === "image/png" ? ".png" : ".jpg";
-				gltfImage.uri = fileName + index + extension;
-
-				pending.push( new Promise( function ( resolve, reject ) {
-
-					transformImage( image, mimeType, flipY, reject, function ( blob ) {
-
-						outputImages[ index ] = blob;
-
-						resolve();
-
-					} );
-
-				} ) );
+				gltfImage.uri = image.src;
 
 			}
 
 			outputJSON.images.push( gltfImage );
 
+			var index = outputJSON.images.length - 1;
 			cachedImages[ key ] = index;
 
 			return index;
@@ -861,6 +892,12 @@ GLTFExporter.prototype = {
 
 			};
 
+			if ( map.name ) {
+
+				gltfTexture.name = map.name;
+
+			}
+
 			outputJSON.textures.push( gltfTexture );
 
 			var index = outputJSON.textures.length - 1;
@@ -889,7 +926,7 @@ GLTFExporter.prototype = {
 
 			}
 
-			if ( material.isShaderMaterial ) {
+			if ( material.isShaderMaterial && ! material.isGLTFSpecularGlossinessMaterial ) {
 
 				console.warn( 'GLTFExporter: THREE.ShaderMaterial not supported.' );
 				return null;
@@ -908,6 +945,12 @@ GLTFExporter.prototype = {
 				gltfMaterial.extensions = { KHR_materials_unlit: {} };
 
 				extensionsUsed[ 'KHR_materials_unlit' ] = true;
+
+			} else if ( material.isGLTFSpecularGlossinessMaterial ) {
+
+				gltfMaterial.extensions = { KHR_materials_pbrSpecularGlossiness: {} };
+
+				extensionsUsed[ 'KHR_materials_pbrSpecularGlossiness' ] = true;
 
 			} else if ( ! material.isMeshStandardMaterial ) {
 
@@ -941,6 +984,23 @@ GLTFExporter.prototype = {
 
 			}
 
+			// pbrSpecularGlossiness diffuse, specular and glossiness factor
+			if ( material.isGLTFSpecularGlossinessMaterial ) {
+
+				if ( gltfMaterial.pbrMetallicRoughness.baseColorFactor ) {
+
+					gltfMaterial.extensions.KHR_materials_pbrSpecularGlossiness.diffuseFactor = gltfMaterial.pbrMetallicRoughness.baseColorFactor;
+
+				}
+
+				var specularFactor = [ 1, 1, 1 ];
+				material.specular.toArray( specularFactor, 0 );
+				gltfMaterial.extensions.KHR_materials_pbrSpecularGlossiness.specularFactor = specularFactor;
+
+				gltfMaterial.extensions.KHR_materials_pbrSpecularGlossiness.glossinessFactor = material.glossiness;
+
+			}
+
 			// pbrMetallicRoughness.metallicRoughnessTexture
 			if ( material.metalnessMap || material.roughnessMap ) {
 
@@ -958,12 +1018,28 @@ GLTFExporter.prototype = {
 
 			}
 
-			// pbrMetallicRoughness.baseColorTexture
+			// pbrMetallicRoughness.baseColorTexture or pbrSpecularGlossiness diffuseTexture
 			if ( material.map ) {
 
 				var baseColorMapDef = { index: processTexture( material.map ) };
 				applyTextureTransform( baseColorMapDef, material.map );
+
+				if ( material.isGLTFSpecularGlossinessMaterial ) {
+
+					gltfMaterial.extensions.KHR_materials_pbrSpecularGlossiness.diffuseTexture = baseColorMapDef;
+
+				}
+
 				gltfMaterial.pbrMetallicRoughness.baseColorTexture = baseColorMapDef;
+
+			}
+
+			// pbrSpecularGlossiness specular map
+			if ( material.isGLTFSpecularGlossinessMaterial && material.specularMap ) {
+
+				var specularMapDef = { index: processTexture( material.specularMap ) };
+				applyTextureTransform( specularMapDef, material.specularMap );
+				gltfMaterial.extensions.KHR_materials_pbrSpecularGlossiness.specularGlossinessTexture = specularMapDef;
 
 			}
 
@@ -998,7 +1074,7 @@ GLTFExporter.prototype = {
 
 				var normalMapDef = { index: processTexture( material.normalMap ) };
 
-				if ( material.normalScale.x !== - 1 ) {
+				if ( material.normalScale && material.normalScale.x !== - 1 ) {
 
 					if ( material.normalScale.x !== material.normalScale.y ) {
 
@@ -1037,13 +1113,15 @@ GLTFExporter.prototype = {
 			}
 
 			// alphaMode
-			if ( material.transparent || material.alphaTest > 0.0 ) {
+			if ( material.transparent ) {
 
-				gltfMaterial.alphaMode = material.opacity < 1.0 ? 'BLEND' : 'MASK';
+				gltfMaterial.alphaMode = 'BLEND';
 
-				// Write alphaCutoff if it's non-zero and different from the default (0.5).
-				if ( material.alphaTest > 0.0 && material.alphaTest !== 0.5 ) {
+			} else {
 
+				if ( material.alphaTest > 0.0 ) {
+
+					gltfMaterial.alphaMode = 'MASK';
 					gltfMaterial.alphaCutoff = material.alphaTest;
 
 				}
@@ -1161,7 +1239,7 @@ GLTFExporter.prototype = {
 
 				console.warn( 'THREE.GLTFExporter: Creating normalized normal attribute from the non-normalized one.' );
 
-				geometry.addAttribute( 'normal', createNormalizedNormalAttribute( originalNormal ) );
+				geometry.setAttribute( 'normal', createNormalizedNormalAttribute( originalNormal ) );
 
 			}
 
@@ -1215,7 +1293,7 @@ GLTFExporter.prototype = {
 
 			}
 
-			if ( originalNormal !== undefined ) geometry.addAttribute( 'normal', originalNormal );
+			if ( originalNormal !== undefined ) geometry.setAttribute( 'normal', originalNormal );
 
 			// Skip if no exportable attributes found
 			if ( Object.keys( attributes ).length === 0 ) {
@@ -1275,9 +1353,9 @@ GLTFExporter.prototype = {
 
 						var baseAttribute = geometry.attributes[ attributeName ];
 
-						if ( cachedData.attributesRelative.has( getUID( attribute ) ) ) {
+						if ( cachedData.attributes.has( getUID( attribute ) ) ) {
 
-							target[ gltfAttributeName ] = cachedData.attributesRelative.get( getUID( attribute ) );
+							target[ gltfAttributeName ] = cachedData.attributes.get( getUID( attribute ) );
 							continue;
 
 						}
@@ -1285,19 +1363,23 @@ GLTFExporter.prototype = {
 						// Clones attribute not to override
 						var relativeAttribute = attribute.clone();
 
-						for ( var j = 0, jl = attribute.count; j < jl; j ++ ) {
+						if ( ! geometry.morphTargetsRelative ) {
 
-							relativeAttribute.setXYZ(
-								j,
-								attribute.getX( j ) - baseAttribute.getX( j ),
-								attribute.getY( j ) - baseAttribute.getY( j ),
-								attribute.getZ( j ) - baseAttribute.getZ( j )
-							);
+							for ( var j = 0, jl = attribute.count; j < jl; j ++ ) {
+
+								relativeAttribute.setXYZ(
+									j,
+									attribute.getX( j ) - baseAttribute.getX( j ),
+									attribute.getY( j ) - baseAttribute.getY( j ),
+									attribute.getZ( j ) - baseAttribute.getZ( j )
+									);
+
+							}
 
 						}
 
 						target[ gltfAttributeName ] = processAccessor( relativeAttribute, geometry );
-						cachedData.attributesRelative.set( getUID( baseAttribute ), target[ gltfAttributeName ] );
+						cachedData.attributes.set( getUID( baseAttribute ), target[ gltfAttributeName ] );
 
 					}
 
@@ -1961,274 +2043,105 @@ GLTFExporter.prototype = {
 
 		}
 
-		function postProcessBuffers() {
+		processInput( input );
 
-			return new Promise( function ( resolve, reject ) {
+		Promise.all( pending ).then( function () {
 
-				if ( outputJSON.buffers && outputJSON.buffers.length > 0 ) {
-
-					// Merge buffers
-					var blob = new Blob( buffers, { type: 'application/octet-stream' } );
-
-					// Update bytelength of the single buffer.
-					outputJSON.buffers[ 0 ].byteLength = blob.size;
-
-					if ( options.mode === "gltf" ) {
-
-						outputJSON.buffers[ 0 ].uri = "scene.bin";
-
-					}
-
-					outputBuffers.push( blob );
-
-				}
-
-				resolve();
-
-			} );
-
-		}
-
-		try {
-
-			processInput( input );
-
-		} catch ( e ) {
-
-			onError( e );
-
-		}
-
-		Promise.all( pending ).then( postProcessBuffers ).then( function () {
+			// Merge buffers.
+			var blob = new Blob( buffers, { type: 'application/octet-stream' } );
 
 			// Declare extensions.
 			var extensionsUsedList = Object.keys( extensionsUsed );
 			if ( extensionsUsedList.length > 0 ) outputJSON.extensionsUsed = extensionsUsedList;
 
-			onDone( {
-				json: outputJSON,
-				buffers: outputBuffers,
-				images: outputImages
-			} );
+			if ( outputJSON.buffers && outputJSON.buffers.length > 0 ) {
 
-		} ).catch( onError );
-
-	},
-
-	/**
-	 * Given a chunks object returned by GLTFLoader.parseChunks, create a blob storing a valid .glb.
-	 * @param  {Object} chunks  chunks object returned by GLTFLoader.parseChunks
-	 * @param  {Function} onDone  Callback on completed
-	 * @param  {Function} onError  Callback on error
-	 */
-	createGLBBlob: function ( chunks, onDone, onError ) {
-
-		if ( chunks.buffers.length > 1 ) {
-
-			onError( new Error( "GLTFExporter: exportGLB expects 0 or 1 buffers." ) );
-			return;
-
-		}
-
-		// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
-
-		var GLB_HEADER_BYTES = 12;
-		var GLB_HEADER_MAGIC = 0x46546C67;
-		var GLB_VERSION = 2;
-
-		var GLB_CHUNK_PREFIX_BYTES = 8;
-		var GLB_CHUNK_TYPE_JSON = 0x4E4F534A;
-		var GLB_CHUNK_TYPE_BIN = 0x004E4942;
-
-		function readBinArrayBuffer( blob ) {
-
-			return new Promise( function ( resolve, reject ) {
+				// Update bytelength of the single buffer.
+				outputJSON.buffers[ 0 ].byteLength = blob.size;
 
 				var reader = new window.FileReader();
 
-				reader.readAsArrayBuffer( blob );
-				reader.onloadend = function () {
+				if ( options.binary === true ) {
 
-					var binaryChunk = GLTFExporter.Utils.getPaddedArrayBuffer( reader.result );
-					resolve( binaryChunk );
+					// https://github.com/KhronosGroup/glTF/blob/master/specification/2.0/README.md#glb-file-format-specification
 
-				};
+					var GLB_HEADER_BYTES = 12;
+					var GLB_HEADER_MAGIC = 0x46546C67;
+					var GLB_VERSION = 2;
 
-				reader.onerror = reject;
+					var GLB_CHUNK_PREFIX_BYTES = 8;
+					var GLB_CHUNK_TYPE_JSON = 0x4E4F534A;
+					var GLB_CHUNK_TYPE_BIN = 0x004E4942;
 
-			} );
+					reader.readAsArrayBuffer( blob );
+					reader.onloadend = function () {
 
-		}
+						// Binary chunk.
+						var binaryChunk = getPaddedArrayBuffer( reader.result );
+						var binaryChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+						binaryChunkPrefix.setUint32( 0, binaryChunk.byteLength, true );
+						binaryChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_BIN, true );
 
-		/**
-		 * Converts a string to an ArrayBuffer.
-		 * @param  {string} text
-		 * @return {ArrayBuffer}
-		 */
-		function stringToArrayBuffer( text ) {
+						// JSON chunk.
+						var jsonChunk = getPaddedArrayBuffer( stringToArrayBuffer( JSON.stringify( outputJSON ) ), 0x20 );
+						var jsonChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
+						jsonChunkPrefix.setUint32( 0, jsonChunk.byteLength, true );
+						jsonChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_JSON, true );
 
-			if ( window.TextEncoder !== undefined ) {
+						// GLB header.
+						var header = new ArrayBuffer( GLB_HEADER_BYTES );
+						var headerView = new DataView( header );
+						headerView.setUint32( 0, GLB_HEADER_MAGIC, true );
+						headerView.setUint32( 4, GLB_VERSION, true );
+						var totalByteLength = GLB_HEADER_BYTES
+							+ jsonChunkPrefix.byteLength + jsonChunk.byteLength
+							+ binaryChunkPrefix.byteLength + binaryChunk.byteLength;
+						headerView.setUint32( 8, totalByteLength, true );
 
-				return new TextEncoder().encode( text ).buffer;
+						var glbBlob = new Blob( [
+							header,
+							jsonChunkPrefix,
+							jsonChunk,
+							binaryChunkPrefix,
+							binaryChunk
+						], { type: 'application/octet-stream' } );
 
-			}
+						var glbReader = new window.FileReader();
+						glbReader.readAsArrayBuffer( glbBlob );
+						glbReader.onloadend = function () {
 
-			var array = new Uint8Array( new ArrayBuffer( text.length ) );
+							onDone( glbReader.result );
 
-			for ( var i = 0, il = text.length; i < il; i ++ ) {
+						};
 
-				var value = text.charCodeAt( i );
+					};
 
-				// Replacing multi-byte character with space(0x20).
-				array[ i ] = value > 0xFF ? 0x20 : value;
+				} else {
 
-			}
+					reader.readAsDataURL( blob );
+					reader.onloadend = function () {
 
-			return array.buffer;
+						var base64data = reader.result;
+						outputJSON.buffers[ 0 ].uri = base64data;
+						onDone( outputJSON );
 
-		}
+					};
 
-		var pending = [];
-		var blobParts = [];
-
-		// GLB header.
-		var header = new ArrayBuffer( GLB_HEADER_BYTES );
-		var headerView = new DataView( header );
-		headerView.setUint32( 0, GLB_HEADER_MAGIC, true );
-		headerView.setUint32( 4, GLB_VERSION, true );
-
-		blobParts.push( header );
-
-		// JSON chunk.
-		var jsonChunk = GLTFExporter.Utils.getPaddedArrayBuffer( stringToArrayBuffer( JSON.stringify( chunks.json ) ), 0x20 );
-		var jsonChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
-		jsonChunkPrefix.setUint32( 0, jsonChunk.byteLength, true );
-		jsonChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_JSON, true );
-
-		blobParts.push( jsonChunkPrefix, jsonChunk );
-
-		if ( chunks.buffers.length !== 0 ) {
-
-			var pendingBinChunk = readBinArrayBuffer( chunks.buffers[ 0 ] ).then( function ( binaryChunk ) {
-
-				var binaryChunkPrefix = new DataView( new ArrayBuffer( GLB_CHUNK_PREFIX_BYTES ) );
-				binaryChunkPrefix.setUint32( 0, binaryChunk.byteLength, true );
-				binaryChunkPrefix.setUint32( 4, GLB_CHUNK_TYPE_BIN, true );
-
-				var totalByteLength = GLB_HEADER_BYTES
-					+ jsonChunkPrefix.byteLength + jsonChunk.byteLength
-					+ binaryChunkPrefix.byteLength + binaryChunk.byteLength;
-				headerView.setUint32( 8, totalByteLength, true );
-
-				blobParts.push( binaryChunkPrefix, binaryChunk );
-
-			} );
-
-			pending.push( pendingBinChunk );
-
-		}
-
-		Promise.all( pending ).then( function ( ) {
-
-			var glbBlob = new Blob( blobParts, { type: 'application/octet-stream' } );
-			onDone( glbBlob );
-
-		} ).catch( onError );
-
-	},
-
-	/**
-	 * Parse scenes and generate GLTF output
-	 * @param  {Scene or [THREE.Scenes]} input   Scene or Array of THREE.Scenes
-	 * @param  {Function} onDone  Callback on completed
-	 * @param  {Function} onError  Callback on error
-	 * @param  {Object} options options
-	 */
-	parse: function ( input, onDone, onError, options ) {
-
-		if ( typeof onError === "object" ) {
-
-			console.warn( 'THREE.GLTFExporter: .parse() now expects ( input, onDone, onError, options ).' );
-
-		}
-
-		if ( options && options.binary !== undefined ) {
-
-			console.warn( 'THREE.GLTFExporter: options.binary has been deprecated. Use options.mode = "glb" instead.' );
-
-		}
-
-		var scope = this;
-
-		this.parseChunks( input, function ( chunks ) {
-
-			if ( options.mode === "gltf" ) {
-
-				onDone( chunks );
+				}
 
 			} else {
 
-				scope.createGLBBlob( chunks, onDone, onError );
+				onDone( outputJSON );
 
 			}
 
-		}, onError, options );
+		} );
 
 	}
 
 };
 
 GLTFExporter.Utils = {
-
-	/**
-	 * Get the required size + padding for a buffer, rounded to the next 4-byte boundary.
-	 * https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#data-alignment
-	 *
-	 * @param {Integer} bufferSize The size the original buffer.
-	 * @returns {Integer} new buffer size with required padding.
-	 *
-	 */
-	getPaddedBufferSize( bufferSize ) {
-
-		return Math.ceil( bufferSize / 4 ) * 4;
-
-	},
-
-	/**
-	 * Returns a buffer aligned to 4-byte boundary.
-	 *
-	 * @param {ArrayBuffer} arrayBuffer Buffer to pad
-	 * @param {Integer} paddingByte (Optional)
-	 * @returns {ArrayBuffer} The same buffer if it's already aligned to 4-byte boundary or a new buffer
-	 */
-	getPaddedArrayBuffer( arrayBuffer, paddingByte ) {
-
-		paddingByte = paddingByte || 0;
-
-		var paddedLength = GLTFExporter.Utils.getPaddedBufferSize( arrayBuffer.byteLength );
-
-		if ( paddedLength !== arrayBuffer.byteLength ) {
-
-			var array = new Uint8Array( paddedLength );
-			array.set( new Uint8Array( arrayBuffer ) );
-
-			if ( paddingByte !== 0 ) {
-
-				for ( var i = arrayBuffer.byteLength; i < paddedLength; i ++ ) {
-
-					array[ i ] = paddingByte;
-
-				}
-
-			}
-
-			return array.buffer;
-
-		}
-
-		return arrayBuffer;
-
-	},
 
 	insertKeyframe: function ( track, time ) {
 
@@ -2387,8 +2300,6 @@ GLTFExporter.Utils = {
 
 			}
 
-			var mergedKeyframeIndex = 0;
-			var sourceKeyframeIndex = 0;
 			var sourceInterpolant = sourceTrack.createInterpolant( new sourceTrack.ValueBufferType( 1 ) );
 
 			mergedTrack = mergedTracks[ sourceTrackNode.uuid ];
