@@ -80,6 +80,7 @@ var GLTFLoader = ( function () {
 		Loader.call( this, manager );
 
 		this.dracoLoader = null;
+		this.revokeObjectURLs = true;
 		this.ddsLoader = null;
 
 	}
@@ -89,6 +90,52 @@ var GLTFLoader = ( function () {
 		constructor: GLTFLoader,
 
 		load: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, false );
+
+		},
+
+		setCrossOrigin: function ( value ) {
+
+			this.crossOrigin = value;
+			return this;
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
+
+		},
+
+		setResourcePath: function ( value ) {
+
+			this.resourcePath = value;
+			return this;
+
+		},
+
+		setDRACOLoader: function ( dracoLoader ) {
+
+			this.dracoLoader = dracoLoader;
+			return this;
+
+		},
+
+		parse: function ( data, path, onLoad, onError ) {
+
+			this._parse( data, path, onLoad, onError, false );
+
+		},
+
+		createParser: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, true );
+
+		},
+
+		_load: function ( url, onLoad, onProgress, onError, parserOnly ) {
 
 			var scope = this;
 
@@ -145,13 +192,13 @@ var GLTFLoader = ( function () {
 
 				try {
 
-					scope.parse( data, resourcePath, function ( gltf ) {
+					scope._parse( data, resourcePath, function ( gltf ) {
 
 						onLoad( gltf );
 
 						scope.manager.itemEnd( url );
 
-					}, _onError );
+					}, _onError, parserOnly );
 
 				} catch ( e ) {
 
@@ -177,7 +224,7 @@ var GLTFLoader = ( function () {
 
 		},
 
-		parse: function ( data, path, onLoad, onError ) {
+		_parse: function ( data, path, onLoad, onError, parserOnly ) {
 
 			var content;
 			var extensions = {};
@@ -277,9 +324,18 @@ var GLTFLoader = ( function () {
 
 				path: path || this.resourcePath || '',
 				crossOrigin: this.crossOrigin,
-				manager: this.manager
+				manager: this.manager,
+				revokeObjectURLs: this.revokeObjectURLs
 
 			} );
+
+			if ( parserOnly ) {
+
+				// parser.markDefs();
+				onLoad( parser );
+				return;
+
+			}
 
 			parser.parse( onLoad, onError );
 
@@ -1488,7 +1544,9 @@ var GLTFLoader = ( function () {
 
 		this.json = json || {};
 		this.extensions = extensions || {};
-		this.options = options || {};
+		this.options = options || {
+			revokeObjectURLs: true
+		};
 
 		// loader object cache
 		this.cache = new GLTFRegistry();
@@ -1545,6 +1603,8 @@ var GLTFLoader = ( function () {
 			assignExtrasToUserData( result, json );
 
 			onLoad( result );
+
+			parser.cache.removeAll();
 
 		} ).catch( onError );
 
@@ -1977,7 +2037,7 @@ var GLTFLoader = ( function () {
 
 			// Clean up resources and configure Texture.
 
-			if ( isObjectURL === true ) {
+			if ( isObjectURL === true && options.revokeObjectURLs ) {
 
 				URL.revokeObjectURL( sourceURI );
 
@@ -2323,6 +2383,9 @@ var GLTFLoader = ( function () {
 			if ( material.map ) material.map.encoding = sRGBEncoding;
 			if ( material.emissiveMap ) material.emissiveMap.encoding = sRGBEncoding;
 			if ( material.specularMap ) material.specularMap.encoding = sRGBEncoding;
+
+			// We cannot assume the texture pixel format is RGB if the texture is used for base color and emissive maps
+			if ( material.map && material.map === material.emissiveMap && ( material.transparent || material.alphaTest > 0.0 ) ) material.map.format = RGBAFormat;
 
 			assignExtrasToUserData( material, materialDef );
 
@@ -2814,8 +2877,6 @@ var GLTFLoader = ( function () {
 
 				}
 
-				var targetName = node.name ? node.name : node.uuid;
-
 				var interpolation = sampler.interpolation !== undefined ? INTERPOLATION[ sampler.interpolation ] : InterpolateLinear;
 
 				var targetNames = [];
@@ -2827,7 +2888,7 @@ var GLTFLoader = ( function () {
 
 						if ( object.isMesh === true && object.morphTargetInfluences ) {
 
-							targetNames.push( object.name ? object.name : object.uuid );
+							targetNames.push( object.uuid );
 
 						}
 
@@ -2835,7 +2896,7 @@ var GLTFLoader = ( function () {
 
 				} else {
 
-					targetNames.push( targetName );
+					targetNames.push( node.uuid );
 
 				}
 
