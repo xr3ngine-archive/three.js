@@ -504,22 +504,6 @@ function WebGLProgram( renderer, extensions, cacheKey, material, shader, paramet
 
 			'#endif',
 
-			renderer.vr.multiview ? [ // For VR multiview
-
-				'uniform mat4 modelViewMatrix2;',
-				'uniform mat4 projectionMatrix2;',
-				'uniform mat4 viewMatrix2;',
-				'uniform mat3 normalMatrix2;',
-				'uniform vec3 cameraPosition2;',
-
-				'#define modelViewMatrix (gl_ViewID_OVR==0u?modelViewMatrix:modelViewMatrix2)',
-				'#define projectionMatrix (gl_ViewID_OVR==0u?projectionMatrix:projectionMatrix2)',
-				'#define viewMatrix (gl_ViewID_OVR==0u?viewMatrix:viewMatrix2)',
-				'#define normalMatrix (gl_ViewID_OVR==0u?normalMatrix:normalMatrix2)',
-				'#define cameraPosition (gl_ViewID_OVR==0u?cameraPosition:cameraPosition2)'
-
-			].join( '\n' ) : '',
-
 			'attribute vec3 position;',
 			'attribute vec3 normal;',
 			'attribute vec2 uv;',
@@ -638,14 +622,6 @@ function WebGLProgram( renderer, extensions, cacheKey, material, shader, paramet
 			'uniform vec3 cameraPosition;',
 			'uniform bool isOrthographic;',
 
-			renderer.vr.multiview ? [ // For VR multiview
-
-				'uniform vec3 cameraPosition2;',
-
-				'#define cameraPosition (gl_ViewID_OVR==0u?cameraPosition:cameraPosition2)'
-
-			].join( '\n' ) : '',
-
 			( parameters.toneMapping !== NoToneMapping ) ? '#define TONE_MAPPING' : '',
 			( parameters.toneMapping !== NoToneMapping ) ? ShaderChunk[ 'tonemapping_pars_fragment' ] : '', // this code is required here because it is used by the toneMapping() function defined below
 			( parameters.toneMapping !== NoToneMapping ) ? getToneMappingFunction( 'toneMapping', parameters.toneMapping ) : '',
@@ -711,14 +687,6 @@ function WebGLProgram( renderer, extensions, cacheKey, material, shader, paramet
 			// GLSL 3.0 conversion
 			prefixVertex = [
 				'#version 300 es\n',
-
-				renderer.vr.multiview ? [ // For VR multiview
-
-					'#extension GL_OVR_multiview : require',
-					'layout(num_views = 2) in;'
-
-				].join( '\n' ) : '',
-
 				'#define attribute in',
 				'#define varying out',
 				'#define texture2D texture'

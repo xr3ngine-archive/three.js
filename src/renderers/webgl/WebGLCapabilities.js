@@ -89,8 +89,6 @@ function WebGLCapabilities( gl, extensions, parameters ) {
 
 	var maxSamples = isWebGL2 ? gl.getParameter( gl.MAX_SAMPLES ) : 0;
 
-	var multiview = isWebGL2 && ( !! extensions.get( 'WEBGL_multiview' ) || !! extensions.get( 'OVR_multiview' ) );
-
 	return {
 
 		isWebGL2: isWebGL2,
@@ -115,9 +113,7 @@ function WebGLCapabilities( gl, extensions, parameters ) {
 		floatFragmentTextures: floatFragmentTextures,
 		floatVertexTextures: floatVertexTextures,
 
-		maxSamples: maxSamples,
-
-		multiview: multiview
+		maxSamples: maxSamples
 
 	};
 

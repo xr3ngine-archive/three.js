@@ -55,21 +55,6 @@ function WebVRManager( renderer ) {
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
 
-	// Multiview with opaque framebuffer approach
-
-	this.multiview = false;
-
-	var multiviewAvailability = null;
-
-	function checkMultiviewAvailability() {
-
-		if ( ! device.getViews ) return false;
-
-		var views = device.getViews();
-		return !! views && views.length === 1 && !! views[ 0 ].getAttributes().multiview;
-
-	}
-
 	//
 
 	function isPresenting() {
@@ -96,15 +81,6 @@ function WebVRManager( renderer ) {
 			cameraL.viewport.set( 0, 0, renderWidth / 2, renderHeight );
 			cameraR.viewport.set( renderWidth / 2, 0, renderWidth / 2, renderHeight );
 
-			multiviewAvailability = checkMultiviewAvailability();
-
-			if ( multiviewAvailability ) {
-
-				renderer.setFramebuffer( device.getViews()[ 0 ].framebuffer );
-				renderer.setRenderTarget( renderer.getRenderTarget() );
-
-			}
-
 			renderer.animation.stop();
 			animation.start();
 
@@ -115,13 +91,6 @@ function WebVRManager( renderer ) {
 			if ( scope.enabled ) {
 
 				renderer.setDrawingBufferSize( currentSize.width, currentSize.height, currentPixelRatio );
-
-				if ( multiviewAvailability ) {
-
-					renderer.setFramebuffer( null );
-					renderer.setRenderTarget( renderer.getRenderTarget() );
-
-				}
 
 			}
 

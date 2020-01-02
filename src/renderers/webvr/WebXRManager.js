@@ -48,10 +48,6 @@ function WebXRManager( renderer, gl ) {
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
 
-	// Multiview with opaque framebuffer approach
-
-	this.multiview = false;
-
 	//
 
 	this.enabled = false;

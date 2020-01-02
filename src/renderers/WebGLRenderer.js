@@ -12,7 +12,6 @@ import {
 import { _Math } from '../math/Math.js';
 import { DataTexture } from '../textures/DataTexture.js';
 import { Frustum } from '../math/Frustum.js';
-import { Matrix3 } from '../math/Matrix3.js';
 import { Matrix4 } from '../math/Matrix4.js';
 import { ShaderLib } from './shaders/ShaderLib.js';
 import { UniformsLib } from './shaders/UniformsLib.js';
@@ -324,16 +323,6 @@ function WebGLRenderer( parameters ) {
 	var shadowMap = new WebGLShadowMap( _this, objects, capabilities.maxTextureSize );
 
 	this.shadowMap = shadowMap;
-
-	// For right eye in VR multiview
-
-	var multiview = {
-		inProgress: false,
-		modelViewMatrix: new Matrix4(),
-		normalMatrix: new Matrix3(),
-		projectionMatrix: new Matrix4(),
-		camera: null
-	};
 
 	// API
 
@@ -1380,13 +1369,6 @@ function WebGLRenderer( parameters ) {
 		object.modelViewMatrix.multiplyMatrices( camera.matrixWorldInverse, object.matrixWorld );
 		object.normalMatrix.getNormalMatrix( object.modelViewMatrix );
 
-		if ( multiview.inProgress ) {
-
-			multiview.modelViewMatrix.multiplyMatrices( multiview.camera.matrixWorldInverse, object.matrixWorld );
-			multiview.normalMatrix.getNormalMatrix( multiview.modelViewMatrix );
-
-		}
-
 		if ( object.isImmediateRenderObject ) {
 
 			state.setMaterial( material );
@@ -1666,8 +1648,6 @@ function WebGLRenderer( parameters ) {
 
 			}
 
-			if ( multiview.inProgress ) p_uniforms.setValue( _gl, 'projectionMatrix2', multiview.camera.projectionMatrix );
-
 			if ( capabilities.logarithmicDepthBuffer ) {
 
 				p_uniforms.setValue( _gl, 'logDepthBufFC',
@@ -1705,18 +1685,6 @@ function WebGLRenderer( parameters ) {
 
 				}
 
-				if ( multiview.inProgress ) {
-
-					var uCamPos = p_uniforms.map.cameraPosition2;
-
-					if ( uCamPos !== undefined ) {
-
-						uCamPos.setValue( _gl, _vector3.setFromMatrixPosition( multiview.camera.matrixWorld ) );
-
-					}
-
-				}
-
 			}
 
 			if ( material.isMeshPhongMaterial ||
@@ -1745,8 +1713,6 @@ function WebGLRenderer( parameters ) {
 					p_uniforms.setValue( _gl, 'viewMatrix', camera.matrixWorldInverse );
 
 				}
-
-				if ( multiview.inProgress ) p_uniforms.setValue( _gl, 'viewMatrix2', multiview.camera.matrixWorldInverse );
 
 			}
 
@@ -1968,13 +1934,6 @@ function WebGLRenderer( parameters ) {
 		}
 
 		p_uniforms.setValue( _gl, 'modelMatrix', object.matrixWorld );
-
-		if ( multiview.inProgress ) {
-
-			p_uniforms.setValue( _gl, 'modelViewMatrix2', multiview.modelViewMatrix );
-			p_uniforms.setValue( _gl, 'normalMatrix2', multiview.normalMatrix );
-
-		}
 
 		// UBOs
 
