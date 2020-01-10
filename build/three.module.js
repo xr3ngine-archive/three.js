@@ -23846,6 +23846,8 @@ function WebVRManager( renderer ) {
 	var device = null;
 	var frameData = null;
 
+	var poseTarget = null;
+
 	var controllers = [];
 	var standingMatrix = new Matrix4();
 	var standingMatrixInverse = new Matrix4();
@@ -24101,6 +24103,12 @@ function WebVRManager( renderer ) {
 
 	};
 
+	this.setPoseTarget = function ( object ) {
+
+		if ( object !== undefined ) poseTarget = object;
+
+	};
+
 	this.getCamera = function ( camera ) {
 
 		var userHeight = referenceSpaceType === 'local-floor' ? 1.6 : 0;
@@ -24130,14 +24138,15 @@ function WebVRManager( renderer ) {
 
 
 		var pose = frameData.pose;
+		var poseObject = poseTarget !== null ? poseTarget : camera;
 
-		tempCamera.matrix.copy( standingMatrix );
-		tempCamera.matrix.decompose( tempCamera.position, tempCamera.quaternion, tempCamera.scale );
+		poseObject.matrix.copy( standingMatrix );
+		poseObject.matrix.decompose( poseObject.position, poseObject.quaternion, poseObject.scale );
 
 		if ( pose.orientation !== null ) {
 
 			tempQuaternion.fromArray( pose.orientation );
-			tempCamera.quaternion.multiply( tempQuaternion );
+			poseObject.quaternion.multiply( tempQuaternion );
 
 		}
 
@@ -24146,15 +24155,13 @@ function WebVRManager( renderer ) {
 			tempQuaternion.setFromRotationMatrix( standingMatrix );
 			tempPosition.fromArray( pose.position );
 			tempPosition.applyQuaternion( tempQuaternion );
-			tempCamera.position.add( tempPosition );
+			poseObject.position.add( tempPosition );
 
 		}
 
-		tempCamera.updateMatrixWorld();
+		poseObject.updateMatrixWorld();
 
 		//
-
-		camera.matrixWorld.copy( tempCamera.matrixWorld );
 
 		var children = camera.children;
 
@@ -24186,7 +24193,7 @@ function WebVRManager( renderer ) {
 
 		}
 
-		var parent = camera.parent;
+		var parent = poseObject.parent;
 
 		if ( parent !== null ) {
 
