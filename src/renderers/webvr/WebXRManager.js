@@ -91,7 +91,6 @@ function WebXRManager( renderer, gl ) {
 		renderer.setFramebuffer( null );
 		renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830
 		animation.stop();
-		renderer.animation.start();
 
 		scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -220,7 +219,6 @@ function WebXRManager( renderer, gl ) {
 		}
 
 		// update camera and its children
-
 		object.matrixWorld.copy( cameraVR.matrixWorld );
 
 		var children = object.children;
