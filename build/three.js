@@ -23877,8 +23877,6 @@
 		var tempQuaternion = new Quaternion();
 		var tempPosition = new Vector3();
 
-		var tempCamera = new PerspectiveCamera();
-
 		var cameraL = new PerspectiveCamera();
 		cameraL.viewport = new Vector4();
 		cameraL.layers.enable( 1 );
@@ -23917,7 +23915,6 @@
 				cameraL.viewport.set( 0, 0, renderWidth / 2, renderHeight );
 				cameraR.viewport.set( renderWidth / 2, 0, renderWidth / 2, renderHeight );
 
-				renderer.animation.stop();
 				animation.start();
 
 				scope.dispatchEvent( { type: 'sessionstart' } );
@@ -23931,7 +23928,6 @@
 				}
 
 				animation.stop();
-				renderer.animation.start();
 
 				scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -24150,6 +24146,7 @@
 			var pose = frameData.pose;
 			var poseObject = poseTarget !== null ? poseTarget : camera;
 
+			// We want to manipulate poseObject by its position and quaternion components since users may rely on them.
 			poseObject.matrix.copy( standingMatrix );
 			poseObject.matrix.decompose( poseObject.position, poseObject.quaternion, poseObject.scale );
 
@@ -24171,10 +24168,7 @@
 
 			poseObject.updateMatrixWorld();
 
-			//
-
-			var children = camera.children;
-
+			var children = poseObject.children;
 			for ( var i = 0, l = children.length; i < l; i ++ ) {
 
 				children[ i ].updateMatrixWorld( true );
@@ -24375,7 +24369,6 @@
 			renderer.setFramebuffer( null );
 			renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830
 			animation.stop();
-			renderer.animation.start();
 
 			scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -24504,7 +24497,6 @@
 			}
 
 			// update camera and its children
-
 			object.matrixWorld.copy( cameraVR.matrixWorld );
 
 			var children = object.children;
