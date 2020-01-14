@@ -48,6 +48,8 @@ function WebXRManager( renderer, gl ) {
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
 
+	var poseMatrix = new THREE.Matrix4();
+
 	//
 
 	this.enabled = false;
@@ -220,6 +222,12 @@ function WebXRManager( renderer, gl ) {
 
 		// update camera and its children
 		object.matrixWorld.copy( cameraVR.matrixWorld );
+		if ( pose ) {
+
+			poseMatrix.elements = pose.transform.matrix;
+			poseMatrix.decompose( object.position, object.rotation, object.scale );
+
+		}
 
 		var children = object.children;
 
