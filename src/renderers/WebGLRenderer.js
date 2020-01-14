@@ -971,6 +971,7 @@ function WebGLRenderer( parameters ) {
 
 	function onAnimationFrame( time ) {
 
+		if ( vr.isPresenting() ) return;
 		if ( onAnimationFrameCallback ) onAnimationFrameCallback( time );
 
 	}
