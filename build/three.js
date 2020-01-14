@@ -25558,6 +25558,7 @@
 
 		function onAnimationFrame( time ) {
 
+			if ( vr.isPresenting() ) { return; }
 			if ( onAnimationFrameCallback ) { onAnimationFrameCallback( time ); }
 
 		}
