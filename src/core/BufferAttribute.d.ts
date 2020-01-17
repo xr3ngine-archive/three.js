@@ -18,7 +18,7 @@ export class BufferAttribute {
 	normalized: boolean;
 	count: number;
 
-	set needsUpdate( value: boolean );
+	needsUpdate: boolean;
 
 	isBufferAttribute: true;
 

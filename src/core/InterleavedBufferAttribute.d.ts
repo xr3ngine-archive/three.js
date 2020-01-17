@@ -16,8 +16,8 @@ export class InterleavedBufferAttribute {
 	offset: number;
 	normalized: boolean;
 
-	get count(): number;
-	get array(): ArrayLike<number>;
+	count: number
+	array: ArrayLike<number>;
 
 	isInterleavedBufferAttribute: true;
 
