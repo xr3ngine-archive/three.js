@@ -225,7 +225,7 @@ function WebXRManager( renderer, gl ) {
 		if ( pose ) {
 
 			poseMatrix.elements = pose.transform.matrix;
-			poseMatrix.decompose( object.position, object.rotation, object.scale );
+			poseMatrix.decompose( object.position, object.quaternion, object.scale );
 
 		}
 
