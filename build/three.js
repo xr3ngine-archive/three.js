@@ -24504,6 +24504,7 @@
 
 				poseMatrix.elements = pose.transform.matrix;
 				poseMatrix.decompose( object.position, object.quaternion, object.scale );
+				object.matrixNeedsUpdate = true;
 
 			}
 
