@@ -55,21 +55,6 @@ function WebVRManager( renderer ) {
 	cameraVR.layers.enable( 1 );
 	cameraVR.layers.enable( 2 );
 
-	// Multiview with opaque framebuffer approach
-
-	this.multiview = false;
-
-	var multiviewAvailability = null;
-
-	function checkMultiviewAvailability() {
-
-		if ( ! device.getViews ) return false;
-
-		var views = device.getViews();
-		return !! views && views.length === 1 && !! views[ 0 ].getAttributes().multiview;
-
-	}
-
 	//
 
 	function isPresenting() {
@@ -96,16 +81,6 @@ function WebVRManager( renderer ) {
 			cameraL.viewport.set( 0, 0, renderWidth / 2, renderHeight );
 			cameraR.viewport.set( renderWidth / 2, 0, renderWidth / 2, renderHeight );
 
-			multiviewAvailability = checkMultiviewAvailability();
-
-			if ( multiviewAvailability ) {
-
-				renderer.setFramebuffer( device.getViews()[ 0 ].framebuffer );
-				renderer.setRenderTarget( renderer.getRenderTarget() );
-
-			}
-
-			renderer.animation.stop();
 			animation.start();
 
 			scope.dispatchEvent( { type: 'sessionstart' } );
@@ -116,17 +91,9 @@ function WebVRManager( renderer ) {
 
 				renderer.setDrawingBufferSize( currentSize.width, currentSize.height, currentPixelRatio );
 
-				if ( multiviewAvailability ) {
-
-					renderer.setFramebuffer( null );
-					renderer.setRenderTarget( renderer.getRenderTarget() );
-
-				}
-
 			}
 
 			animation.stop();
-			renderer.animation.start();
 
 			scope.dispatchEvent( { type: 'sessionend' } );
 
@@ -137,23 +104,26 @@ function WebVRManager( renderer ) {
 	//
 
 	var triggers = [];
+	var grips = [];
 
 	function findGamepad( id ) {
 
 		var gamepads = navigator.getGamepads && navigator.getGamepads();
 
-		for ( var i = 0, j = 0, l = gamepads.length; i < l; i ++ ) {
+		for ( var i = 0, l = gamepads.length; i < l; i ++ ) {
 
 			var gamepad = gamepads[ i ];
 
 			if ( gamepad && ( gamepad.id === 'Daydream Controller' ||
 				gamepad.id === 'Gear VR Controller' || gamepad.id === 'Oculus Go Controller' ||
 				gamepad.id === 'OpenVR Gamepad' || gamepad.id.startsWith( 'Oculus Touch' ) ||
+				gamepad.id.startsWith( 'HTC Vive Focus' ) ||
 				gamepad.id.startsWith( 'Spatial Controller' ) ) ) {
 
-				if ( j === id ) return gamepad;
+				var hand = gamepad.hand;
 
-				j ++;
+				if ( id === 0 && ( hand === '' || hand === 'right' ) ) return gamepad;
+				if ( id === 1 && ( hand === 'left' ) ) return gamepad;
 
 			}
 
@@ -205,6 +175,33 @@ function WebVRManager( renderer ) {
 
 						controller.dispatchEvent( { type: 'selectend' } );
 						controller.dispatchEvent( { type: 'select' } );
+
+					}
+
+				}
+
+				// Grip
+				buttonId = 2;
+
+				if ( grips[ i ] === undefined ) grips[ i ] = false;
+
+				// Skip if the grip button doesn't exist on this controller
+				if ( gamepad.buttons[ buttonId ] !== undefined ) {
+
+					if ( grips[ i ] !== gamepad.buttons[ buttonId ].pressed ) {
+
+						grips[ i ] = gamepad.buttons[ buttonId ].pressed;
+
+						if ( grips[ i ] === true ) {
+
+							controller.dispatchEvent( { type: 'squeezestart' } );
+
+						} else {
+
+							controller.dispatchEvent( { type: 'squeezeend' } );
+							controller.dispatchEvent( { type: 'squeeze' } );
+
+						}
 
 					}
 
@@ -288,15 +285,6 @@ function WebVRManager( renderer ) {
 
 		var userHeight = referenceSpaceType === 'local-floor' ? 1.6 : 0;
 
-		if ( isPresenting() === false ) {
-
-			camera.position.set( 0, userHeight, 0 );
-			camera.rotation.set( 0, 0, 0 );
-
-			return camera;
-
-		}
-
 		device.depthNear = camera.near;
 		device.depthFar = camera.far;
 
@@ -345,6 +333,13 @@ function WebVRManager( renderer ) {
 		}
 
 		poseObject.updateMatrixWorld();
+
+		var children = poseObject.children;
+		for ( var i = 0, l = children.length; i < l; i ++ ) {
+
+			children[ i ].updateMatrixWorld( true );
+
+		}
 
 		//
 

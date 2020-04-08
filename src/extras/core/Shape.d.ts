@@ -13,25 +13,28 @@ export class Shape extends Path {
 	holes: Path[];
 
 	/**
-   * @deprecated Use {@link ExtrudeGeometry ExtrudeGeometry()} instead.
-   */
+	 * @deprecated Use {@link ExtrudeGeometry ExtrudeGeometry()} instead.
+	 */
 	extrude( options?: any ): ExtrudeGeometry;
 
 	/**
-   * @deprecated Use {@link ShapeGeometry ShapeGeometry()} instead.
-   */
+	 * @deprecated Use {@link ShapeGeometry ShapeGeometry()} instead.
+	 */
 	makeGeometry( options?: any ): ShapeGeometry;
 	getPointsHoles( divisions: number ): Vector2[][];
 
 	/**
-   * @deprecated Use {@link Shape#extractPoints .extractPoints()} instead.
-   */
+	 * @deprecated Use {@link Shape#extractPoints .extractPoints()} instead.
+	 */
 	extractAllPoints(
 		divisions: number
 	): {
 		shape: Vector2[];
 		holes: Vector2[][];
 	};
-	extractPoints( divisions: number ): Vector2[];
+	extractPoints( divisions: number ): {
+		shape: Vector2[];
+		holes: Vector2[][];
+	};
 
 }
