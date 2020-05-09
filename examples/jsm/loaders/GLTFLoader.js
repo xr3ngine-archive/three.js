@@ -80,8 +80,15 @@ var GLTFLoader = ( function () {
 		Loader.call( this, manager );
 
 		this.dracoLoader = null;
+		this.basisTextureLoader = null;
 		this.revokeObjectURLs = true;
 		this.ddsLoader = null;
+		this.pluginCallbacks = [];
+		this.register( function ( parser ) {
+
+			return new GLTFMaterialsClearcoatExtension( parser );
+
+		} );
 
 	}
 
@@ -119,6 +126,37 @@ var GLTFLoader = ( function () {
 		setDRACOLoader: function ( dracoLoader ) {
 
 			this.dracoLoader = dracoLoader;
+			return this;
+
+		},
+
+		setBasisTextureLoader: function ( loader ) {
+
+			this.basisTextureLoader = loader;
+			return this;
+
+		},
+
+		register: function ( callback ) {
+
+			if ( ! this.pluginCallbacks.includes( callback ) ) {
+
+				this.pluginCallbacks.push( callback );
+
+			}
+
+			return this;
+
+		},
+
+		unregister: function ( callback ) {
+
+			if ( this.pluginCallbacks.includes( callback ) ) {
+
+				this.pluginCallbacks.splice( this.pluginCallbacks.indexOf( callback ), 1 );
+
+			}
+
 			return this;
 
 		},
@@ -228,6 +266,7 @@ var GLTFLoader = ( function () {
 
 			var content;
 			var extensions = {};
+			var plugins = {};
 
 			if ( typeof data === 'string' ) {
 
@@ -294,6 +333,10 @@ var GLTFLoader = ( function () {
 							extensions[ extensionName ] = new GLTFDracoMeshCompressionExtension( json, this.dracoLoader );
 							break;
 
+						case EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS:
+							extensions[ extensionName ] = new GLTFHubsBasisTextureExtension( this.basisTextureLoader );
+							break;
+
 						case EXTENSIONS.MSFT_TEXTURE_DDS:
 							extensions[ extensionName ] = new GLTFTextureDDSExtension( this.ddsLoader );
 							break;
@@ -308,7 +351,7 @@ var GLTFLoader = ( function () {
 
 						default:
 
-							if ( extensionsRequired.indexOf( extensionName ) >= 0 ) {
+							if ( extensionsRequired.indexOf( extensionName ) >= 0 && plugins[ extensionName ] === undefined ) {
 
 								console.warn( 'THREE.GLTFLoader: Unknown extension "' + extensionName + '".' );
 
@@ -320,7 +363,7 @@ var GLTFLoader = ( function () {
 
 			}
 
-			var parser = new GLTFParser( json, extensions, {
+			var parser = new GLTFParser( json, {
 
 				path: path || this.resourcePath || '',
 				crossOrigin: this.crossOrigin,
@@ -328,6 +371,22 @@ var GLTFLoader = ( function () {
 				revokeObjectURLs: this.revokeObjectURLs
 
 			} );
+
+			for ( var i = 0; i < this.pluginCallbacks.length; i ++ ) {
+
+				var plugin = this.pluginCallbacks[ i ]( parser );
+				plugins[ plugin.name ] = plugin;
+
+				// Workaround to avoid determining as unknown extension
+				// in addUnknownExtensionsToUserData().
+				// Remove this workaround if we move all the existing
+				// extension handlers to plugin system
+				extensions[ plugin.name ] = true;
+
+			}
+
+			parser.setExtensions( extensions );
+			parser.setPlugins( plugins );
 
 			if ( parserOnly ) {
 
@@ -391,7 +450,8 @@ var GLTFLoader = ( function () {
 		KHR_MATERIALS_UNLIT: 'KHR_materials_unlit',
 		KHR_TEXTURE_TRANSFORM: 'KHR_texture_transform',
 		KHR_MESH_QUANTIZATION: 'KHR_mesh_quantization',
-		MSFT_TEXTURE_DDS: 'MSFT_texture_dds'
+		MSFT_TEXTURE_DDS: 'MSFT_texture_dds',
+		MOZ_HUBS_TEXTURE_BASIS: "MOZ_HUBS_texture_basis"
 	};
 
 	/**
@@ -594,6 +654,23 @@ var GLTFLoader = ( function () {
 			throw new Error( 'THREE.GLTFLoader: JSON content not found.' );
 
 		}
+
+	}
+
+
+	/**
+	 * Placeholder basis texture loader
+	 */
+	function GLTFHubsBasisTextureExtension( loader ) {
+
+		if ( ! loader ) {
+
+			throw new Error( 'THREE.GLTFLoader: No HubsBasisTextureLoader instance provided.' );
+
+		}
+
+		this.name = EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS;
+		this.basisTextureLoader = loader;
 
 	}
 
@@ -1540,10 +1617,11 @@ var GLTFLoader = ( function () {
 
 	/* GLTF PARSER */
 
-	function GLTFParser( json, extensions, options ) {
+	function GLTFParser( json, options ) {
 
 		this.json = json || {};
-		this.extensions = extensions || {};
+		this.extensions = {};
+		this.plugins = {};
 		this.options = options || {
 			revokeObjectURLs: true
 		};
@@ -1567,6 +1645,50 @@ var GLTFLoader = ( function () {
 		}
 
 	}
+
+	GLTFParser.prototype.setExtensions = function ( extensions ) {
+
+		this.extensions = extensions;
+
+	};
+
+	GLTFParser.prototype.setPlugins = function ( plugins ) {
+
+		this.plugins = plugins;
+
+	};
+
+	GLTFParser.prototype._invokeOne = function ( func ) {
+
+		var extensions = Object.values( this.plugins );
+		extensions.push( this );
+
+		for ( var i = 0; i < extensions.length; i ++ ) {
+
+			var result = func( extensions[ i ] );
+
+			if ( result ) return result;
+
+		}
+
+	};
+
+	GLTFParser.prototype._invokeAll = function ( func ) {
+
+		var extensions = Object.values( this.plugins );
+		extensions.unshift( this );
+
+		var pending = [];
+
+		for ( var i = 0; i < extensions.length; i ++ ) {
+
+			pending.push( func( extensions[ i ] ) );
+
+		}
+
+		return Promise.all( pending );
+
+	};
 
 	GLTFParser.prototype.parse = function ( onLoad, onError ) {
 
@@ -1693,11 +1815,19 @@ var GLTFLoader = ( function () {
 					break;
 
 				case 'node':
-					dependency = this.loadNode( index );
+					dependency = this._invokeOne( function ( ext ) {
+
+						return ext.loadNode && ext.loadNode( index );
+
+					} );
 					break;
 
 				case 'mesh':
-					dependency = this.loadMesh( index );
+					dependency = this._invokeOne( function ( ext ) {
+
+						return ext.loadMesh && ext.loadMesh( index );
+
+					} );
 					break;
 
 				case 'accessor':
@@ -1705,7 +1835,11 @@ var GLTFLoader = ( function () {
 					break;
 
 				case 'bufferView':
-					dependency = this.loadBufferView( index );
+					dependency = this._invokeOne( function ( ext ) {
+
+						return ext.loadBufferView && ext.loadBufferView( index );
+
+					} );
 					break;
 
 				case 'buffer':
@@ -1713,7 +1847,11 @@ var GLTFLoader = ( function () {
 					break;
 
 				case 'material':
-					dependency = this.loadMaterial( index );
+					dependency = this._invokeOne( function ( ext ) {
+
+						return ext.loadMaterial && ext.loadMaterial( index );
+
+					} );
 					break;
 
 				case 'texture':
@@ -1746,6 +1884,12 @@ var GLTFLoader = ( function () {
 		}
 
 		return dependency;
+
+	};
+
+	GLTFParser.prototype.getMaterialType = function () {
+
+		return MeshStandardMaterial;
 
 	};
 
@@ -1989,6 +2133,10 @@ var GLTFLoader = ( function () {
 
 			source = json.images[ textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].source ];
 
+		} else if ( textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ] ) {
+
+			source = json.images[ textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].source ];
+
 		} else {
 
 			source = json.images[ textureDef.source ];
@@ -2023,7 +2171,9 @@ var GLTFLoader = ( function () {
 
 				loader = textureExtensions[ EXTENSIONS.MSFT_TEXTURE_DDS ]
 					? parser.extensions[ EXTENSIONS.MSFT_TEXTURE_DDS ].ddsLoader
-					: textureLoader;
+					: textureExtensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ]
+						? parser.extensions[ EXTENSIONS.MOZ_HUBS_TEXTURE_BASIS ].basisTextureLoader
+						: textureLoader;
 
 			}
 
@@ -2267,8 +2417,6 @@ var GLTFLoader = ( function () {
 			// Specification:
 			// https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#metallic-roughness-material
 
-			materialType = MeshStandardMaterial;
-
 			var metallicRoughness = materialDef.pbrMetallicRoughness || {};
 
 			materialParams.color = new Color( 1.0, 1.0, 1.0 );
@@ -2300,6 +2448,18 @@ var GLTFLoader = ( function () {
 			}
 
 		}
+
+		materialType = this._invokeOne( function ( ext ) {
+
+			return ext.getMaterialType && ext.getMaterialType( materialIndex );
+
+		} );
+
+		pending.push( this._invokeAll( function ( ext ) {
+
+			return ext.extendMaterialParams && ext.extendMaterialParams( materialIndex, materialParams );
+
+		} ) );
 
 		if ( materialDef.doubleSided === true ) {
 
@@ -2605,15 +2765,15 @@ var GLTFLoader = ( function () {
 		var json = this.json;
 
 		var meshDef = json.meshes[ meshIndex ];
-		var primitives = meshDef.primitives;
+		var primitiveDefs = meshDef.primitives;
 
 		var pending = [];
 
-		for ( var i = 0, il = primitives.length; i < il; i ++ ) {
+		for ( var i = 0, il = primitiveDefs.length; i < il; i ++ ) {
 
-			var material = primitives[ i ].material === undefined
+			var material = primitiveDefs[ i ].material === undefined
 				? createDefaultMaterial()
-				: this.getDependency( 'material', primitives[ i ].material );
+				: this.getDependency( 'material', primitiveDefs[ i ].material );
 
 			pending.push( material );
 
@@ -2621,108 +2781,134 @@ var GLTFLoader = ( function () {
 
 		return Promise.all( pending ).then( function ( originalMaterials ) {
 
-			return parser.loadGeometries( primitives ).then( function ( geometries ) {
+			return parser.loadGeometries( primitiveDefs ).then( function ( geometries ) {
 
-				var meshes = [];
+				var primitives = [];
 
 				for ( var i = 0, il = geometries.length; i < il; i ++ ) {
 
 					var geometry = geometries[ i ];
-					var primitive = primitives[ i ];
-
-					// 1. create Mesh
-
-					var mesh;
-
 					var material = originalMaterials[ i ];
+					var primitiveDef = primitiveDefs[ i ];
 
-					if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLES ||
-						primitive.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ||
-						primitive.mode === WEBGL_CONSTANTS.TRIANGLE_FAN ||
-						primitive.mode === undefined ) {
+					var primitive = this._invokeOne( function ( ext ) {
 
-						// .isSkinnedMesh isn't in glTF spec. See .markDefs()
-						mesh = meshDef.isSkinnedMesh === true
-							? new SkinnedMesh( geometry, material )
-							: new Mesh( geometry, material );
+						return ext.createPrimitive && ext.createPrimitive( meshIndex, i, geometry, material );
 
-						if ( mesh.isSkinnedMesh === true && ! mesh.geometry.attributes.skinWeight.normalized ) {
+					} );
 
-							// we normalize floating point skin weight array to fix malformed assets (see #15319)
-							// it's important to skip this for non-float32 data since normalizeSkinWeights assumes non-normalized inputs
-							mesh.normalizeSkinWeights();
+					if ( primitiveDef.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ) {
 
-						}
+						primitive.drawMode = TriangleStripDrawMode;
 
-						if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ) {
+					} else if ( primitiveDef.mode === WEBGL_CONSTANTS.TRIANGLE_FAN ) {
 
-							mesh.drawMode = TriangleStripDrawMode;
-
-						} else if ( primitive.mode === WEBGL_CONSTANTS.TRIANGLE_FAN ) {
-
-							mesh.drawMode = TriangleFanDrawMode;
-
-						}
-
-					} else if ( primitive.mode === WEBGL_CONSTANTS.LINES ) {
-
-						mesh = new LineSegments( geometry, material );
-
-					} else if ( primitive.mode === WEBGL_CONSTANTS.LINE_STRIP ) {
-
-						mesh = new Line( geometry, material );
-
-					} else if ( primitive.mode === WEBGL_CONSTANTS.LINE_LOOP ) {
-
-						mesh = new LineLoop( geometry, material );
-
-					} else if ( primitive.mode === WEBGL_CONSTANTS.POINTS ) {
-
-						mesh = new Points( geometry, material );
-
-					} else {
-
-						throw new Error( 'THREE.GLTFLoader: Primitive mode unsupported: ' + primitive.mode );
+						primitive.drawMode = TriangleFanDrawMode;
 
 					}
 
-					if ( Object.keys( mesh.geometry.morphAttributes ).length > 0 ) {
+					if ( primitive.isSkinnedMesh === true && ! primitive.geometry.attributes.skinWeight.normalized ) {
 
-						updateMorphTargets( mesh, meshDef );
+						// we normalize floating point skin weight array to fix malformed assets (see #15319)
+						// it's important to skip this for non-float32 data since normalizeSkinWeights assumes non-normalized inputs
+						primitive.normalizeSkinWeights();
 
 					}
 
-					mesh.name = meshDef.name || ( 'mesh_' + meshIndex );
+					if ( Object.keys( primitive.geometry.morphAttributes ).length > 0 ) {
 
-					if ( geometries.length > 1 ) mesh.name += '_' + i;
+						updateMorphTargets( primitive, meshDef );
 
-					assignExtrasToUserData( mesh, meshDef );
+					}
 
-					parser.assignFinalMaterial( mesh );
+					primitive.name = meshDef.name || ( 'mesh_' + meshIndex );
 
-					meshes.push( mesh );
+					if ( geometries.length > 1 ) primitive.name += '_' + i;
 
-				}
+					assignExtrasToUserData( primitive, meshDef );
 
-				if ( meshes.length === 1 ) {
+					parser.assignFinalMaterial( primitive );
 
-					return meshes[ 0 ];
-
-				}
-
-				var group = new Group();
-
-				for ( var i = 0, il = meshes.length; i < il; i ++ ) {
-
-					group.add( meshes[ i ] );
+					primitives.push( primitive );
 
 				}
 
-				return group;
+				var mesh = this._invokeOne( function ( ext ) {
+
+					return ext.finalizeMesh && ext.finalizeMesh( meshIndex, primitives );
+
+				} );
+
+				return mesh;
 
 			} );
 
 		} );
+
+	};
+
+
+	GLTFParser.prototype.createPrimitive = function ( meshIndex, primitiveIndex, geometry, material ) {
+
+		var json = this.json;
+		var meshDef = json.meshes[ meshIndex ];
+		var primitiveDef = meshDef.primitives[ primitiveIndex ];
+
+		var primitive;
+
+		if ( primitiveDef.mode === WEBGL_CONSTANTS.TRIANGLES ||
+			primitiveDef.mode === WEBGL_CONSTANTS.TRIANGLE_STRIP ||
+			primitiveDef.mode === WEBGL_CONSTANTS.TRIANGLE_FAN ||
+			primitiveDef.mode === undefined ) {
+
+			// .isSkinnedMesh isn't in glTF spec. See .markDefs()
+			primitive = meshDef.isSkinnedMesh === true
+				? new SkinnedMesh( geometry, material )
+				: new Mesh( geometry, material );
+
+		} else if ( primitiveDef.mode === WEBGL_CONSTANTS.LINES ) {
+
+			primitive = new LineSegments( geometry, material );
+
+		} else if ( primitiveDef.mode === WEBGL_CONSTANTS.LINE_STRIP ) {
+
+			primitive = new Line( geometry, material );
+
+		} else if ( primitiveDef.mode === WEBGL_CONSTANTS.LINE_LOOP ) {
+
+			primitive = new LineLoop( geometry, material );
+
+		} else if ( primitiveDef.mode === WEBGL_CONSTANTS.POINTS ) {
+
+			primitive = new Points( geometry, material );
+
+		} else {
+
+			throw new Error( 'THREE.GLTFLoader: Primitive mode unsupported: ' + primitiveDef.mode );
+
+		}
+
+		return primitive;
+
+	};
+
+	GLTFParser.prototype.finalizeMesh = function ( meshIndex, primitives ) {
+
+		if ( primitives.length === 1 ) {
+
+			return primitives[ 0 ];
+
+		}
+
+		var group = new Group();
+
+		for ( var i = 0, il = primitives.length; i < il; i ++ ) {
+
+			group.add( primitives[ i ] );
+
+		}
+
+		return group;
 
 	};
 
@@ -2733,7 +2919,6 @@ var GLTFLoader = ( function () {
 	 */
 	GLTFParser.prototype.loadCamera = function ( cameraIndex ) {
 
-		var camera;
 		var cameraDef = this.json.cameras[ cameraIndex ];
 		var params = cameraDef[ cameraDef.type ];
 
@@ -2744,13 +2929,27 @@ var GLTFLoader = ( function () {
 
 		}
 
-		if ( cameraDef.type === 'perspective' ) {
+		var camera = this._invokeOne( function ( ext ) {
 
-			camera = new PerspectiveCamera( _Math.radToDeg( params.yfov ), params.aspectRatio || 1, params.znear || 1, params.zfar || 2e6 );
+			return ext.createCamera && ext.createCamera( cameraIndex );
 
-		} else if ( cameraDef.type === 'orthographic' ) {
+		} );
 
-			camera = new OrthographicCamera( params.xmag / - 2, params.xmag / 2, params.ymag / 2, params.ymag / - 2, params.znear, params.zfar );
+		if ( camera.isPerspectiveCamera ) {
+
+			camera.fov = _Math.radToDeg( params.yfov );
+			camera.aspect = params.aspectRatio || 1;
+			camera.near = params.znear || 1;
+			camera.far = params.zfar || 2e6;
+
+		} else if ( camera.isOrthographicCamera ) {
+
+			camera.left = params.xmag / - 2;
+			camera.right = params.xmag / 2;
+			camera.top = params.ymag / 2;
+			camera.bottom = params.ymag / - 2;
+			camera.near = params.znear;
+			camera.far = params.zfar;
 
 		}
 
@@ -2759,6 +2958,25 @@ var GLTFLoader = ( function () {
 		assignExtrasToUserData( camera, cameraDef );
 
 		return Promise.resolve( camera );
+
+	};
+
+	GLTFParser.prototype.createCamera = function ( cameraIndex ) {
+
+		var camera;
+		var cameraDef = this.json.cameras[ cameraIndex ];
+
+		if ( cameraDef.type === 'perspective' ) {
+
+			camera = new PerspectiveCamera();
+
+		} else if ( cameraDef.type === 'orthographic' ) {
+
+			camera = new OrthographicCamera();
+
+		}
+
+		return camera;
 
 	};
 
@@ -2981,6 +3199,45 @@ var GLTFLoader = ( function () {
 
 	};
 
+	GLTFParser.prototype.createNode = function ( nodeIndex, objects ) {
+
+		var json = this.json;
+		var nodeDef = json.nodes[ nodeIndex ];
+		var node;
+
+		// .isBone isn't in glTF spec. See .markDefs
+		if ( nodeDef.isBone === true ) {
+
+			node = new Bone();
+
+		} else if ( objects.length > 1 ) {
+
+			node = new Group();
+
+		} else if ( objects.length === 1 ) {
+
+			node = objects[ 0 ];
+
+		} else {
+
+			node = new Object3D();
+
+		}
+
+		if ( node !== objects[ 0 ] ) {
+
+			for ( var i = 0, il = objects.length; i < il; i ++ ) {
+
+				node.add( objects[ i ] );
+
+			}
+
+		}
+
+		return node;
+
+	};
+
 	/**
 	 * Specification: https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#nodes-and-hierarchy
 	 * @param {number} nodeIndex
@@ -3071,36 +3328,11 @@ var GLTFLoader = ( function () {
 
 		}() ).then( function ( objects ) {
 
-			var node;
+			var node = this._invokeOne( function ( ext ) {
 
-			// .isBone isn't in glTF spec. See .markDefs
-			if ( nodeDef.isBone === true ) {
+				return ext.createNode && ext.createNode( nodeIndex, objects );
 
-				node = new Bone();
-
-			} else if ( objects.length > 1 ) {
-
-				node = new Group();
-
-			} else if ( objects.length === 1 ) {
-
-				node = objects[ 0 ];
-
-			} else {
-
-				node = new Object3D();
-
-			}
-
-			if ( node !== objects[ 0 ] ) {
-
-				for ( var i = 0, il = objects.length; i < il; i ++ ) {
-
-					node.add( objects[ i ] );
-
-				}
-
-			}
+			} );
 
 			if ( nodeDef.name !== undefined ) {
 
@@ -3259,7 +3491,12 @@ var GLTFLoader = ( function () {
 			var sceneDef = this.json.scenes[ sceneIndex ];
 			var parser = this;
 
-			var scene = new Scene();
+			var scene = this._invokeOne( function ( ext ) {
+
+				return ext.createScene && ext.createScene( sceneIndex );
+
+			} );
+
 			if ( sceneDef.name !== undefined ) scene.name = sceneDef.name;
 
 			assignExtrasToUserData( scene, sceneDef );
@@ -3285,6 +3522,12 @@ var GLTFLoader = ( function () {
 		};
 
 	}();
+
+	GLTFLoader.prototype.createScene = function () {
+
+		return new Scene();
+
+	};
 
 	return GLTFLoader;
 
