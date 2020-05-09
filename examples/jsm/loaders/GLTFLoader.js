@@ -84,11 +84,6 @@ var GLTFLoader = ( function () {
 		this.revokeObjectURLs = true;
 		this.ddsLoader = null;
 		this.pluginCallbacks = [];
-		this.register( function ( parser ) {
-
-			return new GLTFMaterialsClearcoatExtension( parser );
-
-		} );
 
 	}
 
