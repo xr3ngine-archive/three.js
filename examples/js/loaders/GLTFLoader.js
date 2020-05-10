@@ -2719,7 +2719,7 @@ THREE.GLTFLoader = ( function () {
 					var material = originalMaterials[ i ];
 					var primitiveDef = primitiveDefs[ i ];
 
-					var primitive = this._invokeOne( function ( ext ) {
+					var primitive = parser._invokeOne( function ( ext ) {
 
 						return ext.createPrimitive && ext.createPrimitive( meshIndex, i, geometry, material );
 
@@ -2761,7 +2761,7 @@ THREE.GLTFLoader = ( function () {
 
 				}
 
-				var mesh = this._invokeOne( function ( ext ) {
+				var mesh = parser._invokeOne( function ( ext ) {
 
 					return ext.finalizeMesh && ext.finalizeMesh( meshIndex, primitives );
 
@@ -3256,7 +3256,7 @@ THREE.GLTFLoader = ( function () {
 
 		}() ).then( function ( objects ) {
 
-			var node = this._invokeOne( function ( ext ) {
+			var node = parser._invokeOne( function ( ext ) {
 
 				return ext.createNode && ext.createNode( nodeIndex, objects );
 
