@@ -3518,7 +3518,7 @@ var GLTFLoader = ( function () {
 
 	}();
 
-	GLTFLoader.prototype.createScene = function () {
+	GLTFParser.prototype.createScene = function () {
 
 		return new Scene();
 
